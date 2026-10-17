@@ -5,6 +5,7 @@ import 'package:baby_app/main.dart';
 import 'package:baby_app/src/localization.dart';
 import 'package:baby_app/src/notifications.dart';
 import 'package:baby_app/src/store.dart';
+import 'package:baby_app/src/ui/language_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -102,10 +103,63 @@ void main() {
     await tester.tap(find.byTooltip('Instellings'));
     await tester.pumpAndSettle();
     expect(find.text('Taal'), findsOneWidget);
-    await tester.tap(find.text('English'));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(LanguagePicker),
+        matching: find.text('English'),
+      ),
+    );
     await tester.pumpAndSettle();
     expect(app.language, 'en');
     expect(find.text('Settings'), findsOneWidget);
+    expect(find.text('Language'), findsOneWidget);
+    expect(find.byType(LanguagePicker).hitTestable(), findsOneWidget);
+
+    final search = find.byType(TextField);
+    await tester.enterText(search, '  FEED reminder  ');
+    await tester.pumpAndSettle();
+    expect(find.text('Feed reminder'), findsOneWidget);
+    expect(find.text("Baby's name"), findsNothing);
+    expect(find.byType(LanguagePicker), findsNothing);
+    await tester.tap(find.text('Feed reminder'));
+    await tester.pumpAndSettle();
+    expect(find.text('Remind me to feed'), findsOneWidget);
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(search, 'no-such-setting');
+    await tester.pumpAndSettle();
+    expect(
+      find.text('No settings found. Try a different search.'),
+      findsOneWidget,
+    );
+    await tester.tap(find.byTooltip('Clear search'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(search).controller!.text, isEmpty);
+    expect(find.byType(LanguagePicker).hitTestable(), findsOneWidget);
+
+    // Both language names and translated setting labels are searchable.
+    await tester.enterText(search, 'taal');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Afrikaans'));
+    await tester.pumpAndSettle();
+    expect(app.language, 'af');
+    expect(find.text('Taal'), findsOneWidget);
+    expect(find.text('Soek instellings'), findsOneWidget);
+    await tester.enterText(search, 'voedingsherinnering');
+    await tester.pumpAndSettle();
+    expect(find.text(tr('Feed reminder')), findsOneWidget);
+    expect(find.byType(LanguagePicker), findsNothing);
+    await tester.enterText(search, 'English');
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(LanguagePicker),
+        matching: find.text('English'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(app.language, 'en');
     expect(find.text('Language'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());

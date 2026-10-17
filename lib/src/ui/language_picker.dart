@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'common.dart';
 
 class LanguagePicker extends StatelessWidget {
-  const LanguagePicker({super.key});
+  const LanguagePicker({super.key, this.showLabel = true});
+
+  final bool showLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -11,8 +13,13 @@ class LanguagePicker extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const LText('Language', style: TextStyle(fontWeight: FontWeight.w800)),
-        const SizedBox(height: 8),
+        if (showLabel) ...[
+          const LText(
+            'Language',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+        ],
         SegmentedButton<String>(
           segments: const [
             ButtonSegment(value: 'en', label: Text('English')),

@@ -166,6 +166,10 @@ class LTextFormField extends TextFormField {
 // so baby names, caregiver names, activity names and notes stay unchanged.
 const afrikaans = <String, String>{
   'Language': 'Taal',
+  'Search settings': 'Soek instellings',
+  'Clear search': 'Maak soektog skoon',
+  'No settings found. Try a different search.':
+      'Geen instellings gevind nie. Probeer ’n ander soektog.',
   'English': 'English',
   'Afrikaans': 'Afrikaans',
   'Choose your language': 'Kies jou taal',

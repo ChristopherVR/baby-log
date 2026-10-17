@@ -253,176 +253,304 @@ Future<void> _showAppearanceSheet(BuildContext context) => showSheet(
   ),
 );
 
-class SettingsPage extends StatelessWidget {
+class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
+
+  @override
+  State<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  final _search = TextEditingController();
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  bool _matches(Iterable<String> terms) {
+    final words = _search.text.trim().toLowerCase().split(RegExp(r'\s+'));
+    final searchable = terms
+        .expand((term) => [term, tr(term, language: 'af')])
+        .join(' ')
+        .toLowerCase();
+    return words.every(searchable.contains);
+  }
 
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
+    final sections = <Widget>[];
+    void addSection(
+      String title,
+      List<({List<String> terms, Widget child})> entries, {
+      Widget? footer,
+      bool card = true,
+    }) {
+      final matches = entries
+          .where((entry) => _matches([title, ...entry.terms]))
+          .map((entry) => entry.child)
+          .toList();
+      if (matches.isEmpty) return;
+      sections.addAll([
+        SectionTitle(title),
+        if (card) ListCard(children: matches) else ...matches,
+        ?footer,
+      ]);
+    }
+
+    addSection('Language', [
+      (
+        terms: ['Language', 'English', 'Afrikaans'],
+        child: const Padding(
+          padding: EdgeInsets.all(16),
+          child: LanguagePicker(showLabel: false),
+        ),
+      ),
+    ]);
+    addSection(
+      'Baby',
+      [
+        (
+          terms: ["Baby's name", app.babyName],
+          child: _Tile(
+            icon: Icons.child_care_rounded,
+            title: 'Baby\'s name',
+            value: app.babyName.isEmpty ? 'Not set' : app.babyName,
+            onTap: () async {
+              final name = await _ask(
+                context,
+                'Baby\'s name',
+                app.babyName,
+                'e.g. Emma',
+              );
+              if (name != null) app.setBabyName(name);
+            },
+          ),
+        ),
+        (
+          terms: [
+            'Feed reminder',
+            'Remind me to feed',
+            'How long after a feed?',
+            'How it rings',
+            'Notification',
+            'Alarm',
+            feedIntervalLabel(app.feedReminderMinutes),
+          ],
+          child: _Tile(
+            icon: Icons.alarm_rounded,
+            title: 'Feed reminder',
+            value: app.feedReminderOn
+                ? '${feedIntervalLabel(app.feedReminderMinutes)}${app.feedAlarm ? ', alarm' : ''}'
+                : 'Off',
+            onTap: () => showFeedReminderSheet(context),
+          ),
+        ),
+        (
+          terms: ['Pill reminders', 'How it rings', 'Notification', 'Alarm'],
+          child: _Tile(
+            icon: Icons.medication_rounded,
+            title: 'Pill reminders',
+            value: app.pillAlarm ? 'Alarm' : 'Notification',
+            onTap: () => _showPillRingSheet(context),
+          ),
+        ),
+      ],
+      footer: Padding(
+        padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+        child: LText(
+          'Which pills remind you, and when, is set per pill on the Pills tab.',
+          style: TextStyle(color: Baby.muted, fontWeight: FontWeight.w600),
+        ),
+      ),
+    );
+    addSection('Appearance', [
+      (
+        terms: ['Theme', 'Light', 'Dark', 'Match phone'],
+        child: _Tile(
+          icon: Baby.dark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+          title: 'Theme',
+          value: appearanceLabel(app.appearance),
+          onTap: () => _showAppearanceSheet(context),
+        ),
+      ),
+    ]);
+    addSection('Share with partner', [
+      (
+        terms: [
+          'Pair partner',
+          'Connect to the other phone',
+          'Scan code',
+          'Type code',
+          'Address',
+          'Code',
+          'Wi-Fi',
+          'Sync by QR code',
+        ],
+        child: const PairCard(),
+      ),
+      (
+        terms: [
+          'Paired devices',
+          'Sync now',
+          'Sync automatically',
+          'Keep syncing when closed',
+          'Allow background use',
+          'After every change and every minute',
+          for (final peer in app.peers) ...[peer.name, peer.host],
+        ],
+        child: const Padding(
+          padding: EdgeInsets.only(top: 10),
+          child: _PeersCard(),
+        ),
+      ),
+    ], card: false);
+    addSection(
+      'Your data',
+      [
+        (
+          terms: ['Export backup', 'History', 'spreadsheet'],
+          child: _Tile(
+            icon: Icons.save_alt_rounded,
+            title: 'Export backup',
+            value: '',
+            onTap: () => exportBackupFile(context),
+          ),
+        ),
+        (
+          terms: ['Import backup', 'Your saved data could not be read'],
+          child: _Tile(
+            icon: Icons.upload_file_rounded,
+            title: 'Import backup',
+            value: '',
+            onTap: () => importBackupFile(context),
+          ),
+        ),
+      ],
+      footer: Padding(
+        padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+        child: LText(
+          'Importing adds to your log and never deletes anything. '
+          'A spreadsheet export is on the History tab.',
+          style: TextStyle(color: Baby.muted, fontWeight: FontWeight.w600),
+        ),
+      ),
+    );
+    addSection('This device', [
+      (
+        terms: ['Device name', app.deviceName],
+        child: _Tile(
+          icon: Platform.isAndroid
+              ? Icons.phone_android_rounded
+              : Icons.computer_rounded,
+          title: 'Device name',
+          value: app.deviceName,
+          onTap: () async {
+            final name = await _ask(
+              context,
+              'Device name',
+              app.deviceName,
+              'e.g. Mom\'s phone',
+            );
+            if (name != null) app.setDeviceName(name);
+          },
+        ),
+      ),
+      (
+        terms: ['App version', AppState.appVersion],
+        child: _Tile(
+          icon: Icons.info_outline_rounded,
+          title: 'App version',
+          value: AppState.appVersion,
+          onTap: () {},
+        ),
+      ),
+      (
+        terms: ['Run first-time setup again', 'Welcome'],
+        child: _Tile(
+          icon: Icons.restart_alt_rounded,
+          title: 'Run first-time setup again',
+          value: '',
+          onTap: () {
+            Navigator.popUntil(context, (r) => r.isFirst);
+            app.restartSetup();
+          },
+        ),
+      ),
+    ]);
     return Scaffold(
       appBar: AppBar(title: const LText('Settings')),
       body: PageWidth(
-        child: PullToSync(
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            // Room for the phone's navigation buttons (e.g. Samsung) below the last item.
-            padding: EdgeInsets.fromLTRB(
-              16,
-              0,
-              16,
-              32 + MediaQuery.paddingOf(context).bottom,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: TextField(
+                controller: _search,
+                onChanged: (_) => setState(() {}),
+                decoration: LInputDecoration(
+                  labelText: 'Search settings',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  suffixIcon: _search.text.isEmpty
+                      ? null
+                      : LIconButton(
+                          tooltip: 'Clear search',
+                          icon: const Icon(Icons.close_rounded),
+                          onPressed: () => setState(_search.clear),
+                        ),
+                ),
+              ),
             ),
-            children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(4, 12, 4, 12),
-                child: LanguagePicker(),
-              ),
-              const SectionTitle('Baby'),
-              ListCard(
-                children: [
-                  _Tile(
-                    icon: Icons.child_care_rounded,
-                    title: 'Baby\'s name',
-                    value: app.babyName.isEmpty ? 'Not set' : app.babyName,
-                    onTap: () async {
-                      final name = await _ask(
-                        context,
-                        'Baby\'s name',
-                        app.babyName,
-                        'e.g. Emma',
-                      );
-                      if (name != null) app.setBabyName(name);
-                    },
+            Expanded(
+              child: PullToSync(
+                child: ListView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  // Room for the phone's navigation buttons (e.g. Samsung) below the last item.
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    0,
+                    16,
+                    32 + MediaQuery.paddingOf(context).bottom,
                   ),
-                  _Tile(
-                    icon: Icons.alarm_rounded,
-                    title: 'Feed reminder',
-                    value: app.feedReminderOn
-                        ? '${feedIntervalLabel(app.feedReminderMinutes)}${app.feedAlarm ? ', alarm' : ''}'
-                        : 'Off',
-                    onTap: () => showFeedReminderSheet(context),
-                  ),
-                  _Tile(
-                    icon: Icons.medication_rounded,
-                    title: 'Pill reminders',
-                    value: app.pillAlarm ? 'Alarm' : 'Notification',
-                    onTap: () => _showPillRingSheet(context),
-                  ),
-                ],
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
-                child: LText(
-                  'Which pills remind you, and when, is set per pill on the Pills tab.',
-                  style: TextStyle(
-                    color: Baby.muted,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  children: [
+                    if (app.loadProblem != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Card(
+                          color: Baby.warn.withValues(alpha: 0.12),
+                          child: ListTile(
+                            leading: Icon(
+                              Icons.warning_amber_rounded,
+                              color: Baby.warn,
+                            ),
+                            title: const LText(
+                              'Your saved data could not be read',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            subtitle: LText(
+                              'A copy was kept. Use Import backup and choose:\n${app.loadProblem}',
+                            ),
+                          ),
+                        ),
+                      ),
+                    ...sections,
+                    if (sections.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 32),
+                        child: LText(
+                          'No settings found. Try a different search.',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              const SectionTitle('Appearance'),
-              ListCard(
-                children: [
-                  _Tile(
-                    icon: Baby.dark
-                        ? Icons.dark_mode_rounded
-                        : Icons.light_mode_rounded,
-                    title: 'Theme',
-                    value: appearanceLabel(app.appearance),
-                    onTap: () => _showAppearanceSheet(context),
-                  ),
-                ],
-              ),
-              const SectionTitle('Share with partner'),
-              const PairCard(),
-              const SizedBox(height: 10),
-              const _PeersCard(),
-              const SectionTitle('Your data'),
-              if (app.loadProblem != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Card(
-                    color: Baby.warn.withValues(alpha: 0.12),
-                    child: ListTile(
-                      leading: Icon(
-                        Icons.warning_amber_rounded,
-                        color: Baby.warn,
-                      ),
-                      title: const LText(
-                        'Your saved data could not be read',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      subtitle: LText(
-                        'A copy was kept. Use Import backup and choose:\n${app.loadProblem}',
-                      ),
-                    ),
-                  ),
-                ),
-              ListCard(
-                children: [
-                  _Tile(
-                    icon: Icons.save_alt_rounded,
-                    title: 'Export backup',
-                    value: '',
-                    onTap: () => exportBackupFile(context),
-                  ),
-                  _Tile(
-                    icon: Icons.upload_file_rounded,
-                    title: 'Import backup',
-                    value: '',
-                    onTap: () => importBackupFile(context),
-                  ),
-                ],
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
-                child: LText(
-                  'Importing adds to your log and never deletes anything. '
-                  'A spreadsheet export is on the History tab.',
-                  style: TextStyle(
-                    color: Baby.muted,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const SectionTitle('This device'),
-              ListCard(
-                children: [
-                  _Tile(
-                    icon: Platform.isAndroid
-                        ? Icons.phone_android_rounded
-                        : Icons.computer_rounded,
-                    title: 'Device name',
-                    value: app.deviceName,
-                    onTap: () async {
-                      final name = await _ask(
-                        context,
-                        'Device name',
-                        app.deviceName,
-                        'e.g. Mom\'s phone',
-                      );
-                      if (name != null) app.setDeviceName(name);
-                    },
-                  ),
-                  _Tile(
-                    icon: Icons.info_outline_rounded,
-                    title: 'App version',
-                    value: AppState.appVersion,
-                    onTap: () {},
-                  ),
-                  _Tile(
-                    icon: Icons.restart_alt_rounded,
-                    title: 'Run first-time setup again',
-                    value: '',
-                    onTap: () {
-                      Navigator.popUntil(context, (r) => r.isFirst);
-                      app.restartSetup();
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
