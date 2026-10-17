@@ -1,0 +1,238 @@
+import 'dart:io';
+import 'dart:ui';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/date_symbol_data_local.dart';
+
+import 'src/notifications.dart';
+import 'src/store.dart';
+import 'src/sync.dart';
+import 'src/ui/alarm_page.dart';
+import 'src/ui/common.dart';
+import 'src/ui/history_page.dart';
+import 'src/ui/home_page.dart';
+import 'src/ui/pills_page.dart';
+import 'src/ui/routines_page.dart';
+import 'src/ui/settings_page.dart';
+import 'src/ui/setup_page.dart';
+import 'src/ui/theme.dart';
+
+/// Desktop testing flags:
+///   --profile=b                 separate data file (or BABYLOG_PROFILE=b), to run a second "device"
+///   --pair=host:port:code       pair with another running copy on start
+Future<void> main(List<String> args) async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting();
+  var profile = Platform.environment['BABYLOG_PROFILE'] ?? '';
+  String? pair;
+  for (final a in args) {
+    if (a.startsWith('--profile=')) profile = a.substring('--profile='.length);
+    if (a.startsWith('--pair=')) pair = a.substring('--pair='.length);
+  }
+  // Android's sync service starts the app with --headless (no screen yet).
+  final state = await AppState.load(
+    profile: profile,
+    foreground: !args.contains('--headless'),
+  );
+  runApp(BabyApp(state: state, profile: profile));
+
+  final p = pair?.split(':');
+  if (p != null && p.length == 3) {
+    try {
+      await state.pair(p[0], int.tryParse(p[1]) ?? defaultSyncPort, p[2]);
+    } catch (e) {
+      debugPrint('Pairing failed: $e');
+    }
+  }
+}
+
+class BabyApp extends StatefulWidget {
+  const BabyApp({super.key, required this.state, this.profile = ''});
+  final AppState state;
+  final String profile;
+
+  @override
+  State<BabyApp> createState() => _BabyAppState();
+}
+
+class _BabyAppState extends State<BabyApp> with WidgetsBindingObserver {
+  late String _language;
+  final _navigator = GlobalKey<NavigatorState>();
+
+  /// A reminder was opened (tapped, or shown full screen as an alarm).
+  void _openReminder(ReminderInfo info) => _navigator.currentState?.push(
+    MaterialPageRoute(builder: (_) => AlarmPage(info: info)),
+  );
+
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    _language = widget.state.language;
+    AppLanguage.use(_language);
+    WidgetsBinding.instance.addObserver(this);
+    widget.state.addListener(_applyAppearance);
+    widget.state.reminders.onOpen = _openReminder;
+    final launchedWith = widget.state.reminders.launchedWith;
+    if (launchedWith != null) {
+      widget.state.reminders.launchedWith = null;
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _openReminder(launchedWith),
+      );
+    }
+    _lifecycle = AppLifecycleListener(
+      onResume: widget.state.appResumed,
+      onHide: widget.state.appPaused,
+    );
+    Baby.dark = _wantDark;
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    widget.state.removeListener(_applyAppearance);
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangePlatformBrightness() => _applyAppearance();
+
+  bool get _wantDark => switch (widget.state.appearance) {
+    'dark' => true,
+    'system' =>
+      PlatformDispatcher.instance.platformBrightness == Brightness.dark,
+    _ => false,
+  };
+
+  /// The palette is read directly by many widgets, so when it flips every
+  /// widget is rebuilt, not just those that depend on the Theme.
+  void _applyAppearance() {
+    final dark = _wantDark;
+    if (dark == Baby.dark && _language == widget.state.language) return;
+    _language = widget.state.language;
+    AppLanguage.use(_language);
+    Baby.dark = dark;
+    void markAll(Element e) {
+      e.markNeedsBuild();
+      e.visitChildren(markAll);
+    }
+
+    (context as Element).visitChildren(markAll);
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = widget.state;
+    return AppScope(
+      state: app,
+      child: MaterialApp(
+        title: 'Baby Log',
+        locale: Locale(app.language),
+        supportedLocales: const [Locale('en'), Locale('af')],
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        debugShowCheckedModeBanner: false,
+        theme: babyTheme(),
+        themeAnimationDuration: Duration.zero,
+        // Lists can also be dragged with a mouse (Windows testing), e.g. pull to refresh.
+        scrollBehavior: const MaterialScrollBehavior().copyWith(
+          dragDevices: PointerDeviceKind.values.toSet(),
+        ),
+        navigatorKey: _navigator,
+        home: Builder(
+          builder: (context) => AppScope.of(context).setupDone
+              ? Shell(profile: widget.profile)
+              : const SetupPage(),
+        ),
+      ),
+    );
+  }
+}
+
+class Shell extends StatefulWidget {
+  const Shell({super.key, this.profile = ''});
+  final String profile;
+
+  @override
+  State<Shell> createState() => _ShellState();
+}
+
+class _ShellState extends State<Shell> {
+  int tab = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final app = AppScope.of(context);
+    final title = switch (tab) {
+      0 => app.babyName.isEmpty ? 'Today' : '${app.babyName}\'s day',
+      1 => 'History',
+      2 => 'Pills',
+      _ => 'Routines',
+    };
+    return Scaffold(
+      appBar: AppBar(
+        toolbarHeight: 64,
+        title: LText(
+          widget.profile.isEmpty ? title : '$title [${widget.profile}]',
+        ),
+        actions: [
+          const SyncChip(),
+          LIconButton(
+            tooltip: 'Settings',
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => openSettings(context),
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
+      body: PageWidth(
+        child: Column(
+          children: [
+            const BabyPicker(),
+            Expanded(
+              child: IndexedStack(
+                index: tab,
+                children: [
+                  HomePage(
+                    onSeeHistory: () => setState(() => tab = 1),
+                    onSeeRoutines: () => setState(() => tab = 3),
+                  ),
+                  const HistoryPage(),
+                  const PillsPage(),
+                  const RoutinesPage(),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: tab,
+        onDestinationSelected: (i) => setState(() => tab = i),
+        destinations: [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home_rounded),
+            label: tr('Today'),
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.history_rounded),
+            label: tr('History'),
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.medication_outlined),
+            selectedIcon: Icon(Icons.medication_rounded),
+            label: tr('Pills'),
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.event_repeat_rounded),
+            label: tr('Routines'),
+          ),
+        ],
+      ),
+    );
+  }
+}
