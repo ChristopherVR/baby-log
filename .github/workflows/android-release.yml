@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
 
+# Coalesce quick pushes: only the newest main revision should reach release.
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -22,7 +27,7 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze --no-pub
       - run: flutter test --no-pub
-      - name: Test release versioning
+      - name: Test release tooling
         run: python3 -m unittest discover -s tool -p 'test_*.py'
 
   release:
@@ -34,6 +39,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-java@v6.1.0
         with:
           distribution: temurin
@@ -49,6 +56,19 @@ jobs:
         env:
           RUN_NUMBER: ${{ github.run_number }}
         run: python3 tool/release_version.py --run-number "$RUN_NUMBER" --github-output "$GITHUB_OUTPUT"
+      - name: Install git-cliff
+        uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2
+        with:
+          tool: git-cliff@2.14.2
+      - name: Generate and bundle release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # Ignore drafts, including an interrupted publication. Reruns use the
+          # previous release so their notes do not become empty after publishing.
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/releases?per_page=100" > "$RUNNER_TEMP/releases.json"
+          python3 tool/release_notes.py --version "$VERSION" --releases-json "$RUNNER_TEMP/releases.json"
       - name: Restore stable Android signing key
         env:
           ANDROID_DEBUG_KEYSTORE: ${{ secrets.ANDROID_DEBUG_KEYSTORE }}
@@ -91,15 +111,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
           VERSION: ${{ steps.version.outputs.version }}
-          BUILD_NUMBER: ${{ steps.version.outputs.build }}
         run: |
+          # Also reject manual reruns of an older revision.
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$GITHUB_SHA"
           APK="BabyLog-${VERSION}.apk"
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             git fetch origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
             test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$GITHUB_SHA"
             gh release upload "$RELEASE_TAG" "$APK" --clobber
+            gh release edit "$RELEASE_TAG" --notes-file RELEASE_NOTES.md
           else
             gh release create "$RELEASE_TAG" "$APK" --target "$GITHUB_SHA" \
-              --title "Baby Log ${VERSION}" --generate-notes \
-              --notes "Android version ${VERSION}, build ${BUILD_NUMBER}. Tests passed before building."
+              --title "Baby Log ${VERSION}" --notes-file RELEASE_NOTES.md
           fi

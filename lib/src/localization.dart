@@ -165,6 +165,9 @@ class LTextFormField extends TextFormField {
 // Exact labels and explicit templates. Captured values are never translated,
 // so baby names, caregiver names, activity names and notes stay unchanged.
 const afrikaans = <String, String>{
+  'What’s new': 'Wat is nuut',
+  'Version {version}': 'Weergawe {version}',
+  'Got it': 'Goed so',
   'App updates': 'Appopdaterings',
   'New update available: {version}': 'Nuwe opdatering beskikbaar: {version}',
   'Update': 'Dateer op',

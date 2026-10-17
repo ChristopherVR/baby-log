@@ -10,6 +10,7 @@ import 'src/store.dart';
 import 'src/sync.dart';
 import 'src/updates.dart';
 import 'src/ui/update_card.dart';
+import 'src/ui/changelog_dialog.dart';
 import 'src/ui/alarm_page.dart';
 import 'src/ui/common.dart';
 import 'src/ui/history_page.dart';
@@ -68,6 +69,33 @@ class _BabyAppState extends State<BabyApp> with WidgetsBindingObserver {
   );
 
   late final AppLifecycleListener _lifecycle;
+  bool _showingChangelog = false;
+
+  Future<void> _showChangelog() async {
+    if (!Platform.isAndroid ||
+        _showingChangelog ||
+        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      return;
+    }
+    _showingChangelog = true;
+    try {
+      final notes = await InstalledChangelog.load();
+      final dialogContext = _navigator.currentState?.overlay?.context;
+      if (!mounted ||
+          dialogContext == null ||
+          !dialogContext.mounted ||
+          WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed ||
+          notes == null ||
+          !notes.shouldShow(widget.state.changelogSeenVersion)) {
+        return;
+      }
+      await showInstalledChangelog(dialogContext, widget.state, notes);
+    } catch (error) {
+      debugPrint('Could not show release notes: $error');
+    } finally {
+      _showingChangelog = false;
+    }
+  }
 
   @override
   void initState() {
@@ -88,11 +116,15 @@ class _BabyAppState extends State<BabyApp> with WidgetsBindingObserver {
       onResume: () {
         widget.state.appResumed();
         AppUpdates.instance.check();
+        _showChangelog();
       },
       onHide: widget.state.appPaused,
     );
     Baby.dark = _wantDark;
-    if (!widget.state.startedHeadless) AppUpdates.instance.check();
+    if (!widget.state.startedHeadless) {
+      AppUpdates.instance.check();
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showChangelog());
+    }
   }
 
   @override

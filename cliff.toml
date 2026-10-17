@@ -1,0 +1,24 @@
+# Shared by GitHub releases and the changelog bundled into each APK.
+[changelog]
+header = ""
+body = """
+{% for group, commits in commits | group_by(attribute="group") %}
+{{ group }}
+{% for commit in commits %}- {{ commit.message | split(pat="\n") | first | trim }}
+{% endfor %}
+{% endfor %}
+"""
+footer = ""
+trim = true
+
+[git]
+# Keep the existing plain-English commit subjects as well as conventional ones.
+conventional_commits = false
+filter_unconventional = false
+split_commits = false
+commit_parsers = [
+  { message = "^feat", group = "New features" },
+  { message = "^fix", group = "Fixes" },
+  { message = ".*", group = "Changes" },
+]
+sort_commits = "oldest"

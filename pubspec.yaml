@@ -68,6 +68,8 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+  assets:
+    - assets/release_notes.json
 
   # Nunito (SIL Open Font License, see assets/fonts/OFL.txt)
   fonts:

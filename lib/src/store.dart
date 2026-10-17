@@ -68,6 +68,15 @@ class AppState extends ChangeNotifier {
   String caregiverName = '';
   String language = 'en';
 
+  // Device-local acknowledgement; never synced or exported in a backup.
+  String changelogSeenVersion = '';
+
+  Future<void> acknowledgeChangelog(String version) {
+    changelogSeenVersion = version;
+    _save();
+    return _saving;
+  }
+
   void setLanguage(String value) {
     if (value != 'en' && value != 'af') return;
     language = value;
@@ -1482,6 +1491,7 @@ class AppState extends ChangeNotifier {
       activeBabyId = j['activeBabyId'] as String? ?? defaultBabyId;
       caregiverName = j['caregiverName'] as String? ?? '';
       language = j['language'] == 'af' ? 'af' : 'en';
+      changelogSeenVersion = j['changelogSeenVersion'] as String? ?? '';
       _routineRemindHere.addAll(
         Map<String, bool>.from(j['routineRemindHere'] as Map? ?? {}),
       );
@@ -1578,6 +1588,7 @@ class AppState extends ChangeNotifier {
       'activeBabyId': activeBabyId,
       'caregiverName': caregiverName,
       'language': language,
+      'changelogSeenVersion': changelogSeenVersion,
       'routineRemindHere': _routineRemindHere,
       'babyFeedReminderOn': _feedReminderOn,
       'babyFeedReminderMinutes': _feedReminderMinutes,
