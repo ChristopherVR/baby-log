@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../models.dart';
 import 'common.dart';
+import 'history_charts.dart';
 import 'data_transfer.dart';
 import 'sheets.dart';
 import 'theme.dart';
@@ -29,6 +30,7 @@ String _searchText(Entry e) => _searchCache[e] ??= [
   if (e.type == EntryType.nappy && e.nappy != NappyKind.poo) 'wet nat piepie',
   if (e.type == EntryType.nappy && e.nappy != NappyKind.pee) 'dirty vuil poef',
   if (e.type == EntryType.pill) 'pill medicine pil medisyne',
+  if (e.type == EntryType.sleep) 'sleep nap sleeping slaap slapie',
   _fullDate.format(e.time),
   _shortDate.format(e.time),
   hm(e.time),
@@ -45,6 +47,7 @@ class _HistoryPageState extends State<HistoryPage> {
   final _search = TextEditingController();
   EntryType? filter;
   Grouping grouping = Grouping.day;
+  bool charts = false;
 
   @override
   void dispose() {
@@ -78,6 +81,7 @@ class _HistoryPageState extends State<HistoryPage> {
           (EntryType.feed, 'Feeds'),
           (EntryType.nappy, 'Nappies'),
           (EntryType.pill, 'Pills'),
+          (EntryType.sleep, 'Sleep'),
         ])
           if (list.any((e) => e.type == type))
             (title, list.where((e) => e.type == type).toList()),
@@ -130,6 +134,16 @@ class _HistoryPageState extends State<HistoryPage> {
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
     final multiDay = grouping != Grouping.day;
+
+    if (charts) {
+      return PullToSync(
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+          children: [_viewPicker(), const HistoryCharts()],
+        ),
+      );
+    }
 
     // Flattened rows so the list is built lazily: a header, then entries.
     // Rebuilt only when the entries, filter, grouping, search or day change.
@@ -227,11 +241,32 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
+  Widget _viewPicker() => Padding(
+    padding: const EdgeInsets.only(bottom: 16),
+    child: SegmentedButton<bool>(
+      segments: const [
+        ButtonSegment(
+          value: false,
+          icon: Icon(Icons.history_rounded),
+          label: LText('Log'),
+        ),
+        ButtonSegment(
+          value: true,
+          icon: Icon(Icons.bar_chart_rounded),
+          label: LText('Charts'),
+        ),
+      ],
+      selected: {charts},
+      onSelectionChanged: (v) => setState(() => charts = v.single),
+    ),
+  );
+
   Widget _controls(BuildContext context, List<Entry> shown) {
     final searching = _search.text.isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        _viewPicker(),
         Row(
           children: [
             Expanded(
@@ -309,6 +344,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 (EntryType.feed, 'Feeds', Glyphs.feed, Baby.feed),
                 (EntryType.nappy, 'Nappies', Glyphs.nappy, Baby.nappy),
                 (EntryType.pill, 'Pills', Glyphs.pill, Baby.pill),
+                (EntryType.sleep, 'Sleep', Glyphs.sleep, Baby.pill),
               ])
                 Padding(
                   padding: const EdgeInsets.only(right: 8),

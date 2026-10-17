@@ -1,6 +1,6 @@
 # Baby Log
 
-Track feeds (left / right / both / bottle, time, how long), nappies (pee / poo / both) and your own pills
+Track feeds (left / right / both / bottle, time, how long), nappies (pee / poo / both), sleep and your own pills
 with reminder alarms. Two devices share the data over Wi-Fi by scanning a QR code or typing a code.
 
 Use Flutter **3.47.7** (Dart 3.13.5) and Java 21. Add Flutter's `bin` directory to PATH.
@@ -76,6 +76,20 @@ Or with the phone plugged in (USB debugging on): `flutter run`.
   or stopped before switching babies, so the feed stays with the right baby.
 - Profiles and routines sync by Wi-Fi or QR and are included in JSON backups, including deletions.
   Install the same feature version on both phones to share profiles, routines and completion history.
+
+## Sleep and history charts
+
+- On Today, tap **Start nap** when putting your baby down. The start time can be adjusted.
+  Tap **End nap** when they wake. Opening Feed or Nappy during a nap asks whether it finished;
+  choose **Still sleeping** to continue tracking while logging the feed or change.
+- Naps belong to the selected baby, survive restarts, and sync like other care entries.
+  Tap a sleep entry in History to correct its times or delete it.
+- In **History → Charts**, choose 7, 14 or 30 days. Daily charts show wee and poo counts and
+  sleep hours; three hourly charts show feeding, poo and wee frequencies across those days.
+  Mixed nappies count in both nappy charts. Overnight sleep is split at midnight, and ongoing
+  naps contribute up to the current time. Tap bars for values and swipe to see the whole range.
+- Chart ranges use local calendar days and all logs for the selected baby. Search, type filters
+  and grouping apply to the Log view. Sleep is included in CSV exports and JSON backups.
 
 ## Languages
 

@@ -45,7 +45,15 @@ Future<void> exportCsvFile(BuildContext context, List<Entry> entries) {
   }
 
   final rows = [
-    ['Date', 'Time', 'Type', 'What', 'Duration (min)', 'Amount (ml)'],
+    [
+      'Date',
+      'Time',
+      'Type',
+      'What',
+      'Duration (min)',
+      'Amount (ml)',
+      'Sleep end',
+    ],
     for (final e in entries)
       [
         DateFormat('yyyy-MM-dd').format(e.time),
@@ -54,14 +62,19 @@ Future<void> exportCsvFile(BuildContext context, List<Entry> entries) {
           EntryType.feed => 'Feed',
           EntryType.nappy => 'Nappy',
           EntryType.pill => 'Pill',
+          EntryType.sleep => 'Sleep',
         },
         switch (e.type) {
           EntryType.feed => e.side == null ? 'Breast' : sideLabel(e.side!),
           EntryType.nappy => nappyLabel(e.nappy ?? NappyKind.pee),
           EntryType.pill => e.medName ?? '',
+          EntryType.sleep => e.endTime == null ? 'Sleeping' : 'Nap',
         },
-        e.durationMin,
+        e.type == EntryType.sleep
+            ? e.endTime?.difference(e.time).inMinutes
+            : e.durationMin,
         e.amountMl,
+        e.endTime?.toIso8601String(),
       ],
   ];
   final csv = rows.map((r) => r.map(cell).join(',')).join('\r\n');

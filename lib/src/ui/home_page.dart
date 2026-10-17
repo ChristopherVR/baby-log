@@ -81,6 +81,30 @@ class _HomePageState extends State<HomePage> {
               style: TextStyle(color: Baby.muted, fontWeight: FontWeight.w700),
             ),
           ),
+          Card(
+            color: Baby.pillSoft,
+            child: ListTile(
+              leading: Glyphs.sleep(28, Baby.pill),
+              title: LText(app.activeSleep == null ? 'Sleep' : 'Sleeping'),
+              subtitle: LText(
+                app.activeSleep == null
+                    ? 'Put down for a nap'
+                    : '${hm(app.activeSleep!.time)} · ${duration(DateTime.now().difference(app.activeSleep!.time))}',
+              ),
+              trailing: FilledButton(
+                onPressed: () {
+                  final nap = app.activeSleep;
+                  if (nap == null) {
+                    showSheet(context, const SleepSheet());
+                  } else {
+                    app.endSleep(nap);
+                  }
+                },
+                child: LText(app.activeSleep == null ? 'Start nap' : 'End nap'),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
           RoutinePreview(onOpen: widget.onSeeRoutines),
           const SizedBox(height: 14),
           if (app.timerStart != null) ...[

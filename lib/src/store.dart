@@ -353,6 +353,40 @@ class AppState extends ChangeNotifier {
     return null;
   }
 
+  Entry? get activeSleep => entries
+      .where((e) => e.type == EntryType.sleep && e.endTime == null)
+      .firstOrNull;
+
+  bool startSleep({DateTime? time}) {
+    final start = time ?? DateTime.now();
+    if (activeSleep != null || start.isAfter(DateTime.now())) return false;
+    addEntry(Entry(type: EntryType.sleep, time: start));
+    return true;
+  }
+
+  bool endSleep(Entry sleep, {DateTime? time}) {
+    final current = _entries[sleep.id];
+    final end = time ?? DateTime.now();
+    if (current == null ||
+        current.deleted ||
+        current.type != EntryType.sleep ||
+        current.endTime != null ||
+        end.isBefore(current.time) ||
+        end.isAfter(DateTime.now())) {
+      return false;
+    }
+    addEntry(
+      Entry(
+        id: current.id,
+        babyId: current.babyId,
+        type: EntryType.sleep,
+        time: current.time,
+        endTime: end,
+      ),
+    );
+    return true;
+  }
+
   Entry? get lastFeed => _last(EntryType.feed);
   Entry? get lastNappy => _last(EntryType.nappy);
 
@@ -482,6 +516,9 @@ class AppState extends ChangeNotifier {
         .where((e) => !e.deleted && e.type == EntryType.nappy)
         .length,
     'pill': _visible.where((e) => e.type == EntryType.pill).length,
+    'sleep': _entries.values
+        .where((e) => !e.deleted && e.type == EntryType.sleep)
+        .length,
     'med': _visibleMeds.length,
     'baby': babies.length,
     'routine': _routines.values.where((r) => !r.deleted).length,
@@ -1465,7 +1502,7 @@ class AppState extends ChangeNotifier {
     final counts = _mergePayload(j);
     _changed();
     final entries = counts.entries
-        .where((e) => ['feed', 'nappy', 'pill'].contains(e.key))
+        .where((e) => ['feed', 'nappy', 'pill', 'sleep'].contains(e.key))
         .fold<int>(0, (a, e) => a + e.value);
     return (
       entries: entries,

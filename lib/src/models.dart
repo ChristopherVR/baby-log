@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
-enum EntryType { feed, nappy, pill }
+enum EntryType { feed, nappy, pill, sleep }
 
 enum FeedSide { left, right, both, bottle }
 
@@ -42,6 +42,7 @@ class Entry implements Syncable {
   final String id;
   final EntryType type;
   final DateTime time;
+  final DateTime? endTime;
   final FeedSide? side;
   final int? durationMin;
   final int? amountMl;
@@ -62,6 +63,7 @@ class Entry implements Syncable {
     String? id,
     required this.type,
     required this.time,
+    this.endTime,
     this.side,
     this.durationMin,
     this.amountMl,
@@ -87,6 +89,7 @@ class Entry implements Syncable {
     id: id,
     type: type,
     time: time,
+    endTime: endTime,
     side: side,
     durationMin: durationMin,
     amountMl: amountMl,
@@ -105,6 +108,7 @@ class Entry implements Syncable {
     'id': id,
     'type': type.name,
     'time': time.millisecondsSinceEpoch,
+    if (endTime != null) 'endTime': endTime!.millisecondsSinceEpoch,
     if (side != null) 'side': side!.name,
     if (durationMin != null) 'durationMin': durationMin,
     if (amountMl != null) 'amountMl': amountMl,
@@ -125,6 +129,7 @@ class Entry implements Syncable {
       id: j['id'],
       type: type,
       time: _ms(j['time']),
+      endTime: j['endTime'] == null ? null : _ms(j['endTime']),
       side: _enum(FeedSide.values, j['side']),
       durationMin: (j['durationMin'] as num?)?.toInt(),
       amountMl: (j['amountMl'] as num?)?.toInt(),

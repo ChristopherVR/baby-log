@@ -215,6 +215,7 @@ class PeerPage extends StatelessWidget {
                       const SizedBox(height: 6),
                       for (final (kind, label, glyph, color) in [
                         ('feed', 'Feeds', Glyphs.feed, Baby.feed),
+                        ('sleep', 'Sleep', Glyphs.sleep, Baby.pill),
                         ('nappy', 'Nappies', Glyphs.nappy, Baby.nappy),
                         ('pill', 'Pill doses', Glyphs.pill, Baby.pill),
                         ('med', 'Pills', Glyphs.pill, Baby.pill),

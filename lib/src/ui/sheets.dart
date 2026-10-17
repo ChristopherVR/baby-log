@@ -7,11 +7,43 @@ import '../store.dart';
 import 'common.dart';
 import 'theme.dart';
 
-Future<void> showSheet(BuildContext context, Widget child) {
+Future<void> showSheet(BuildContext context, Widget child) async {
+  if ((child is FeedSheet && child.initial == null) ||
+      (child is NappySheet && child.initial == null)) {
+    final app = AppScope.of(context);
+    final nap = app.activeSleep;
+    if (nap != null) {
+      final finished = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const LText('Has the nap finished?'),
+          content: const LText('End the nap now, or keep tracking sleep.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const LText('Still sleeping'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const LText('End nap'),
+            ),
+          ],
+        ),
+      );
+      if (!context.mounted || finished == null) return;
+      if (finished) app.endSleep(nap);
+    }
+  }
+  if (!context.mounted) return;
+  return _openSheet(context, child);
+}
+
+Future<void> _openSheet(BuildContext context, Widget child) {
   final editing = switch (child) {
     FeedSheet(:final initial) => initial != null,
     NappySheet(:final initial) => initial != null,
     PillDoseSheet() => true,
+    SleepSheet(:final initial) => initial != null,
     _ => false,
   };
   Widget builder(BuildContext c) => Padding(
@@ -28,12 +60,13 @@ Future<void> showSheet(BuildContext context, Widget child) {
     child: SingleChildScrollView(child: child),
   );
   if (editing) {
-    return Navigator.of(context).push(
+    final navigator = Navigator.of(context);
+    return Navigator.of(context).push<void>(
       _EditSheetRoute(
         builder: builder,
         capturedThemes: InheritedTheme.capture(
           from: context,
-          to: Navigator.of(context).context,
+          to: navigator.context,
         ),
         barrierLabel: MaterialLocalizations.of(context)
             .modalBarrierDismissLabel,
@@ -155,6 +188,7 @@ class _EditGuardState extends State<_EditGuard> {
 /// Opens the right editor for an existing entry.
 Future<void> editEntry(BuildContext context, Entry e) =>
     showSheet(context, switch (e.type) {
+      EntryType.sleep => SleepSheet(initial: e),
       EntryType.feed => FeedSheet(initial: e),
       EntryType.nappy => NappySheet(initial: e),
       EntryType.pill => PillDoseSheet(initial: e),
@@ -586,5 +620,96 @@ class _PillDoseSheetState extends State<PillDoseSheet> {
         ],
       ),
     );
+  }
+}
+
+class SleepSheet extends StatefulWidget {
+  const SleepSheet({super.key, this.initial});
+  final Entry? initial;
+
+  @override
+  State<SleepSheet> createState() => _SleepSheetState();
+}
+
+class _SleepSheetState extends State<SleepSheet> {
+  late DateTime start = widget.initial?.time ?? DateTime.now();
+  late DateTime? end = widget.initial?.endTime;
+  String? error;
+
+  @override
+  Widget build(BuildContext context) {
+    final app = AppScope.of(context);
+    final initial = widget.initial;
+    final dirty =
+        initial != null && (start != initial.time || end != initial.endTime);
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SheetHeader(
+          title: initial == null ? 'Put down for a nap' : 'Edit sleep',
+          glyph: Glyphs.sleep,
+          soft: Baby.pillSoft,
+          strong: Baby.pill,
+        ),
+        const LText('Nap started'),
+        WhenField(
+          value: start,
+          onChanged: (t) => setState(() => start = t ?? start),
+        ),
+        if (end != null) ...[
+          const SizedBox(height: 16),
+          const LText('Nap ended'),
+          WhenField(value: end, onChanged: (t) => setState(() => end = t)),
+        ],
+        if (error != null) LText(error!, style: TextStyle(color: Baby.error)),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            if (initial != null) _DeleteButton(initial),
+            const Spacer(),
+            FilledButton(
+              onPressed: initial != null && !dirty
+                  ? null
+                  : () async {
+                      if (start.isAfter(DateTime.now()) ||
+                          (end != null &&
+                              (end!.isBefore(start) ||
+                                  end!.isAfter(DateTime.now())))) {
+                        setState(
+                          () => error =
+                              'Choose valid start and end times in the past',
+                        );
+                        return;
+                      }
+                      if (!await okToOverwrite(context, app, initial) ||
+                          !context.mounted) {
+                        return;
+                      }
+                      if (initial == null) {
+                        if (!app.startSleep(time: start)) {
+                          setState(
+                            () => error = 'A nap is already being tracked',
+                          );
+                          return;
+                        }
+                      } else {
+                        app.addEntry(
+                          Entry(
+                            id: initial.id,
+                            type: EntryType.sleep,
+                            time: start,
+                            endTime: end,
+                          ),
+                        );
+                      }
+                      Navigator.pop(context);
+                    },
+              child: LText(initial == null ? 'Start nap' : 'Update'),
+            ),
+          ],
+        ),
+      ],
+    );
+    return initial == null ? content : _EditGuard(dirty: dirty, child: content);
   }
 }

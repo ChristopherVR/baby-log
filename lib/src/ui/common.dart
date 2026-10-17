@@ -83,9 +83,15 @@ String entryTitle(Entry e) => switch (e.type) {
   },
   EntryType.nappy => 'Nappy · ${nappyLabel(e.nappy ?? NappyKind.pee)}',
   EntryType.pill => e.medName ?? 'Pill',
+  EntryType.sleep => e.endTime == null ? 'Sleeping' : 'Sleep',
 };
 
 String? entryDetail(Entry e) {
+  if (e.type == EntryType.sleep) {
+    return e.endTime == null
+        ? 'Since ${hm(e.time)}'
+        : '${hm(e.time)} – ${hm(e.endTime!)} · ${duration(e.endTime!.difference(e.time))}';
+  }
   final parts = [
     if (e.durationMin != null) '${e.durationMin} min',
     if (e.amountMl != null) '${e.amountMl} ml',
@@ -103,6 +109,7 @@ Glyph _sym(IconData icon) =>
     (size, color) => Icon(icon, size: size, color: color, fill: 1);
 
 abstract final class Glyphs {
+  static final sleep = _sym(Symbols.bedtime_rounded);
   static final feed = _sym(Symbols.breastfeeding_rounded);
   static final bottle = _sym(Symbols.water_bottle_rounded);
   static final nappy = _sym(Symbols.baby_changing_station_rounded);
@@ -174,6 +181,11 @@ class _PooPainter extends CustomPainter {
     glyph: e.side == FeedSide.bottle ? Glyphs.bottle : Glyphs.feed,
     soft: Baby.feedSoft,
     strong: Baby.feed,
+  ),
+  EntryType.sleep => (
+    glyph: Glyphs.sleep,
+    soft: Baby.pillSoft,
+    strong: Baby.pill,
   ),
   EntryType.nappy => nappyLook(e.nappy ?? NappyKind.pee),
   EntryType.pill => (
