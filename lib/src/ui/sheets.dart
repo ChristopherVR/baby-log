@@ -7,28 +7,150 @@ import '../store.dart';
 import 'common.dart';
 import 'theme.dart';
 
-Future<void> showSheet(BuildContext context, Widget child) =>
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      useSafeArea: true,
-      constraints: const BoxConstraints(maxWidth: 560),
-      builder: (c) => Padding(
-        // Above the keyboard when open, otherwise above the navigation buttons.
-        padding: EdgeInsets.fromLTRB(
-          20,
-          0,
-          20,
-          20 +
-              max(
-                MediaQuery.viewInsetsOf(c).bottom,
-                MediaQuery.viewPaddingOf(c).bottom,
-              ),
+Future<void> showSheet(BuildContext context, Widget child) {
+  final editing = switch (child) {
+    FeedSheet(:final initial) => initial != null,
+    NappySheet(:final initial) => initial != null,
+    PillDoseSheet() => true,
+    _ => false,
+  };
+  Widget builder(BuildContext c) => Padding(
+    padding: EdgeInsets.fromLTRB(
+      20,
+      0,
+      20,
+      20 +
+          max(
+            MediaQuery.viewInsetsOf(c).bottom,
+            MediaQuery.viewPaddingOf(c).bottom,
+          ),
+    ),
+    child: SingleChildScrollView(child: child),
+  );
+  if (editing) {
+    return Navigator.of(context).push(
+      _EditSheetRoute(
+        builder: builder,
+        capturedThemes: InheritedTheme.capture(
+          from: context,
+          to: Navigator.of(context).context,
         ),
-        child: SingleChildScrollView(child: child),
+        barrierLabel: MaterialLocalizations.of(context)
+            .modalBarrierDismissLabel,
       ),
     );
+  }
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    useSafeArea: true,
+    constraints: const BoxConstraints(maxWidth: 560),
+    builder: builder,
+  );
+}
+
+// Barrier taps must use maybePop so the editor can confirm unsaved changes.
+// Native sheet dragging pops directly; the editor supplies a guarded handle.
+class _EditSheetRoute extends ModalBottomSheetRoute<void> {
+  _EditSheetRoute({
+    required super.builder,
+    super.capturedThemes,
+    super.barrierLabel,
+  }) : super(
+         isScrollControlled: true,
+         enableDrag: false,
+         showDragHandle: false,
+         useSafeArea: true,
+         constraints: const BoxConstraints(maxWidth: 560),
+       );
+
+  @override
+  Widget buildModalBarrier() => AnimatedModalBarrier(
+    color: animation!.drive(
+      ColorTween(
+        begin: barrierColor.withValues(alpha: 0),
+        end: barrierColor,
+      ).chain(CurveTween(curve: barrierCurve)),
+    ),
+    semanticsLabel: barrierLabel,
+    onDismiss: () => navigator?.maybePop(),
+  );
+}
+
+class _EditGuard extends StatefulWidget {
+  const _EditGuard({required this.dirty, required this.child});
+  final bool dirty;
+  final Widget child;
+
+  @override
+  State<_EditGuard> createState() => _EditGuardState();
+}
+
+class _EditGuardState extends State<_EditGuard> {
+  bool prompting = false;
+
+  Future<void> confirmDiscard() async {
+    if (prompting) return;
+    prompting = true;
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const LText('Discard changes?'),
+        content: const LText('Your changes have not been saved.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const LText('Keep editing'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const LText('Discard'),
+          ),
+        ],
+      ),
+    );
+    prompting = false;
+    if (discard == true && mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) => PopScope(
+    canPop: !widget.dirty,
+    onPopInvokedWithResult: (didPop, result) {
+      if (!didPop) confirmDiscard();
+    },
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onVerticalDragEnd: (details) {
+            if ((details.primaryVelocity ?? 0) > 0) {
+              Navigator.maybePop(context);
+            }
+          },
+          child: SizedBox(
+            height: 36,
+            width: double.infinity,
+            child: Center(
+              child: Container(
+                width: 32,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant
+                      .withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+          ),
+        ),
+        widget.child,
+      ],
+    ),
+  );
+}
 
 /// Opens the right editor for an existing entry.
 Future<void> editEntry(BuildContext context, Entry e) =>
@@ -168,7 +290,13 @@ class _FeedSheetState extends State<FeedSheet> {
       onSelected: onSelected,
     );
 
-    return Column(
+    final initial = widget.initial;
+    final dirty =
+        initial != null &&
+        (s != initial.side ||
+            time != initial.time ||
+            (bottle ? ml != initial.amountMl : minutes != initial.durationMin));
+    final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SheetHeader(
@@ -252,14 +380,15 @@ class _FeedSheetState extends State<FeedSheet> {
                   foregroundColor: Baby.onPrimary,
                 ),
                 icon: const Icon(Icons.check_rounded),
-                label: const LText('Save'),
-                onPressed: save,
+                label: LText(editing ? 'Update' : 'Save'),
+                onPressed: editing && !dirty ? null : save,
               ),
             ),
           ],
         ),
       ],
     );
+    return editing ? _EditGuard(dirty: dirty, child: content) : content;
   }
 }
 
@@ -273,11 +402,13 @@ class NappySheet extends StatefulWidget {
 
 class _NappySheetState extends State<NappySheet> {
   DateTime? time;
+  NappyKind? kind;
 
   @override
   void initState() {
     super.initState();
     time = widget.initial?.time;
+    kind = widget.initial?.nappy ?? NappyKind.pee;
   }
 
   @override
@@ -306,12 +437,14 @@ class _NappySheetState extends State<NappySheet> {
       }
     }
 
-    return Column(
+    final dirty =
+        initial != null && (kind != initial.nappy || time != initial.time);
+    final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SheetHeader(
           title: initial == null ? 'Nappy change' : 'Edit nappy',
-          subtitle: 'Tap one to save',
+          subtitle: initial == null ? 'Tap one to save' : null,
           glyph: Glyphs.nappy,
           soft: Baby.nappySoft,
           strong: Baby.nappy,
@@ -328,7 +461,7 @@ class _NappySheetState extends State<NappySheet> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(22),
                         side: BorderSide(
-                          color: initial?.nappy == k
+                          color: initial != null && kind == k
                               ? Baby.ink
                               : Colors.transparent,
                           width: 2,
@@ -336,7 +469,13 @@ class _NappySheetState extends State<NappySheet> {
                       ),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(22),
-                        onTap: () => pick(k),
+                        onTap: () {
+                          if (initial == null) {
+                            pick(k);
+                          } else {
+                            setState(() => kind = k);
+                          }
+                        },
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 22),
                           child: Column(
@@ -370,9 +509,22 @@ class _NappySheetState extends State<NappySheet> {
         const SizedBox(height: 18),
         WhenField(value: time, onChanged: (t) => setState(() => time = t)),
         if (initial != null)
-          Align(alignment: Alignment.centerLeft, child: _DeleteButton(initial)),
+          Padding(
+            padding: const EdgeInsets.only(top: 20),
+            child: Row(
+              children: [
+                _DeleteButton(initial),
+                const Spacer(),
+                FilledButton(
+                  onPressed: dirty ? () => pick(kind!) : null,
+                  child: const LText('Update'),
+                ),
+              ],
+            ),
+          ),
       ],
     );
+    return initial != null ? _EditGuard(dirty: dirty, child: content) : content;
   }
 }
 
@@ -391,41 +543,48 @@ class _PillDoseSheetState extends State<PillDoseSheet> {
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
     final e = widget.initial;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SheetHeader(
-          title: e.medName ?? 'Pill',
-          subtitle: 'Edit when it was taken',
-          glyph: Glyphs.pill,
-        ),
-        WhenField(value: time, onChanged: (t) => setState(() => time = t)),
-        const SizedBox(height: 20),
-        Row(
-          children: [
-            _DeleteButton(e),
-            const Spacer(),
-            FilledButton(
-              onPressed: () async {
-                if (!await okToOverwrite(context, app, e) || !context.mounted) {
-                  return;
-                }
-                app.addEntry(
-                  Entry(
-                    id: e.id,
-                    type: EntryType.pill,
-                    time: time ?? DateTime.now(),
-                    medId: e.medId,
-                    medName: e.medName,
-                  ),
-                );
-                Navigator.pop(context);
-              },
-              child: const LText('Save'),
-            ),
-          ],
-        ),
-      ],
+    final dirty = time != e.time;
+    return _EditGuard(
+      dirty: dirty,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SheetHeader(
+            title: e.medName ?? 'Pill',
+            subtitle: 'Edit when it was taken',
+            glyph: Glyphs.pill,
+          ),
+          WhenField(value: time, onChanged: (t) => setState(() => time = t)),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              _DeleteButton(e),
+              const Spacer(),
+              FilledButton(
+                onPressed: !dirty
+                    ? null
+                    : () async {
+                        if (!await okToOverwrite(context, app, e) ||
+                            !context.mounted) {
+                          return;
+                        }
+                        app.addEntry(
+                          Entry(
+                            id: e.id,
+                            type: EntryType.pill,
+                            time: time ?? DateTime.now(),
+                            medId: e.medId,
+                            medName: e.medName,
+                          ),
+                        );
+                        Navigator.pop(context);
+                      },
+                child: const LText('Update'),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
