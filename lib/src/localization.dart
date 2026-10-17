@@ -165,6 +165,22 @@ class LTextFormField extends TextFormField {
 // Exact labels and explicit templates. Captured values are never translated,
 // so baby names, caregiver names, activity names and notes stay unchanged.
 const afrikaans = <String, String>{
+  'App updates': 'Appopdaterings',
+  'New update available: {version}': 'Nuwe opdatering beskikbaar: {version}',
+  'Update': 'Dateer op',
+  'Check for updates': 'Kyk vir opdaterings',
+  'Checking for updates…': 'Kyk tans vir opdaterings…',
+  'Downloading: {progress}%': 'Laai af: {progress}%',
+  'No releases available yet.': 'Nog geen vrystellings beskikbaar nie.',
+  'No compatible update available.':
+      'Geen versoenbare opdatering beskikbaar nie.',
+  'Could not check for updates. Try again when you are online.':
+      'Kon nie vir opdaterings kyk nie. Probeer weer wanneer jy aanlyn is.',
+  'Download from GitHub, then confirm installation in Android. Your logs stay on this device.': 'Laai van GitHub af en bevestig dan die installering in Android. Jou logboek bly op hierdie toestel.',
+  'Confirm the update in Android. If cancelled, tap Update to try again.': 'Bevestig die opdatering in Android. Indien gekanselleer, tik Dateer op om weer te probeer.',
+  'Allow updates from Baby Log, then return and tap Update again.': 'Laat opdaterings van Baby Log toe, keer dan terug en tik weer Dateer op.',
+  'Could not install the update. Please try again.':
+      'Kon nie die opdatering installeer nie. Probeer asseblief weer.',
   'Language': 'Taal',
   'Search settings': 'Soek instellings',
   'Clear search': 'Maak soektog skoon',

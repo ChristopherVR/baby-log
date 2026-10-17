@@ -8,6 +8,8 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'src/notifications.dart';
 import 'src/store.dart';
 import 'src/sync.dart';
+import 'src/updates.dart';
+import 'src/ui/update_card.dart';
 import 'src/ui/alarm_page.dart';
 import 'src/ui/common.dart';
 import 'src/ui/history_page.dart';
@@ -83,10 +85,14 @@ class _BabyAppState extends State<BabyApp> with WidgetsBindingObserver {
       );
     }
     _lifecycle = AppLifecycleListener(
-      onResume: widget.state.appResumed,
+      onResume: () {
+        widget.state.appResumed();
+        AppUpdates.instance.check();
+      },
       onHide: widget.state.appPaused,
     );
     Baby.dark = _wantDark;
+    if (!widget.state.startedHeadless) AppUpdates.instance.check();
   }
 
   @override
@@ -191,6 +197,7 @@ class _ShellState extends State<Shell> {
       body: PageWidth(
         child: Column(
           children: [
+            const UpdateCard(),
             const BabyPicker(),
             Expanded(
               child: IndexedStack(

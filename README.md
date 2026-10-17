@@ -103,6 +103,19 @@ dates and reminders use the chosen language. Each phone keeps its own choice.
 
 ## Automatic Android releases
 
+Android checks GitHub for a stable release on opening/resuming the app (at most once every six
+hours). A newer version with a matching `BabyLog-<version>.apk` shows **New update available**
+above the tabs. **Settings → App updates → Check for updates** checks immediately.
+Internet access is needed; baby logs are not sent to GitHub.
+
+Tap **Update** to download with progress, then confirm Android's installation prompt. The first
+time, Android may ask you to allow installations from Baby Log; return and tap **Update** again.
+The downloaded APK is reused. Cancelling leaves the current app usable. Updates preserve local data.
+Before opening the installer, Baby Log checks download size, package identity, increasing Android
+build code and matching signing certificate. Android also verifies the APK during installation.
+Windows remains a development/test target without an updater. This is for GitHub APK distribution;
+a future Play Store build needs Play's update flow.
+
 Every push to `main` runs static analysis, Flutter tests and versioning tests first. Only after they
 pass does GitHub Actions build a release APK, upload an artifact and publish it on the repository's
 [Releases](https://github.com/ChristopherVR/baby-log/releases) page.

@@ -14,6 +14,7 @@ import 'qr_sync_page.dart';
 import 'sheets.dart';
 import 'theme.dart';
 import 'language_picker.dart';
+import 'update_card.dart';
 
 void openSettings(BuildContext context) => Navigator.push(
   context,
@@ -438,6 +439,14 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ),
     );
+    if (Platform.isAndroid) {
+      addSection('App updates', [
+        (
+          terms: ['Check for updates', 'Update', 'GitHub', 'App version'],
+          child: const UpdateCard(settings: true),
+        ),
+      ], card: false);
+    }
     addSection('This device', [
       (
         terms: ['Device name', app.deviceName],
