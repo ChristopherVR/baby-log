@@ -96,6 +96,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Vandag'), findsWidgets);
     expect(find.text('Roetines'), findsOneWidget);
+    await tester.tap(find.text('Roetines'));
+    await tester.pumpAndSettle();
+    expect(find.text('’n Klein ritme vir jou baba'), findsOneWidget);
     await tester.tap(find.byTooltip('Instellings'));
     await tester.pumpAndSettle();
     expect(find.text('Taal'), findsOneWidget);

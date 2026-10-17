@@ -392,7 +392,8 @@ class Reminders {
           id: routineId++,
           kind: 'routine',
           babyId: r.babyId,
-          title: '${item.babyName.isEmpty ? 'Baby' : item.babyName}: ${r.name}',
+          title:
+              '${item.babyName.isEmpty ? tr('Baby') : item.babyName}: ${r.name}',
           body: r.notes.isEmpty ? 'Time for ${r.name.toLowerCase()}' : r.notes,
         );
         await _plugin.zonedSchedule(
@@ -414,7 +415,7 @@ class Reminders {
         id: babyFeedId++,
         kind: 'feed',
         babyId: b.babyId,
-        title: '${b.name.isEmpty ? 'Baby' : b.name}: time for a feed',
+        title: '${b.name.isEmpty ? tr('Baby') : b.name}: time for a feed',
         body: 'Reminder you set after the last feed',
         alarm: feedAlarm,
       );

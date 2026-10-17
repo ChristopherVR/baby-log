@@ -151,7 +151,7 @@ class RoutinesPage extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             child: LText(
-              'A little rhythm for ${app.babyName.isEmpty ? 'your baby' : app.babyName}',
+              'A little rhythm for ${app.babyName.isEmpty ? tr('your baby') : app.babyName}',
               style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800),
             ),
           ),

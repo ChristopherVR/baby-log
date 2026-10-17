@@ -452,7 +452,7 @@ class PeerPage extends StatelessWidget {
       ('routine', 'routine', 'routines'),
       ('completion', 'routine completion', 'routine completions'),
     ])
-      if ((m[k] ?? 0) > 0) '${m[k]} ${m[k] == 1 ? one : many}',
+      if ((m[k] ?? 0) > 0) '${m[k]} ${tr(m[k] == 1 ? one : many)}',
   ].join(', ');
 
   static String _size(int bytes) => bytes < 1024
