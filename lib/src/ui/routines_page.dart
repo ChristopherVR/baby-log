@@ -364,7 +364,9 @@ class _RoutineEditorState extends State<_RoutineEditor> {
           24,
           24,
           24,
-          24 + MediaQuery.viewInsetsOf(context).bottom,
+          24 +
+              MediaQuery.viewInsetsOf(context).bottom +
+              MediaQuery.paddingOf(context).bottom,
         ),
         child: Form(
           key: _form,

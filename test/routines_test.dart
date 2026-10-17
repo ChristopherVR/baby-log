@@ -194,6 +194,53 @@ void main() {
     }
   });
 
+  for (final keyboardHeight in [0.0, 320.0]) {
+    testWidgets(
+      'routine save clears bottom navigation with keyboard height $keyboardHeight',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(360, 780);
+        tester.view.viewPadding = const FakeViewPadding(bottom: 48);
+        tester.view.padding = FakeViewPadding(
+          bottom: keyboardHeight == 0 ? 48 : 0,
+        );
+        tester.view.viewInsets = FakeViewPadding(bottom: keyboardHeight);
+        addTearDown(tester.view.reset);
+        app.dispose();
+        app = (await tester.runAsync(
+          () => AppState.loadForTesting(
+            File('${dir.path}/layout.json'),
+            persist: false,
+          ),
+        ))!;
+        app.setupDone = true;
+        await tester.pumpWidget(BabyApp(state: app));
+        await tester.tap(find.text('Routines').last);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Add routine'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(ActionChip, 'Bath time'));
+
+        final save = find.widgetWithText(FilledButton, 'Save routine');
+        final scrollable = find.ancestor(
+          of: save,
+          matching: find.byType(SingleChildScrollView),
+        );
+        await tester.drag(scrollable, const Offset(0, -1200));
+        await tester.pumpAndSettle();
+        final button = tester.getRect(save);
+        final obscuredHeight = keyboardHeight == 0 ? 48 : keyboardHeight;
+        expect(button.bottom, lessThanOrEqualTo(780 - obscuredHeight - 24));
+        expect(button.top, greaterThanOrEqualTo(0));
+        expect(tester.takeException(), isNull);
+        await tester.tap(save);
+        await tester.pumpAndSettle();
+        expect(app.routines.single.name, 'Bath time');
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
+
   testWidgets(
     'create a bath routine, validate days and switch baby in the app',
     (tester) async {
