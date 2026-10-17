@@ -41,13 +41,15 @@ String tr(String text, {String? language}) {
 final _patterns = [
   for (final entry in afrikaans.entries)
     if (entry.key.contains('{')) _TranslationPattern(entry.key, entry.value),
-];
+]..sort((a, b) => b.specificity.compareTo(a.specificity));
 
 class _TranslationPattern {
   late final RegExp pattern;
   final String translation;
   final List<String> parameters = [];
-  _TranslationPattern(String source, this.translation) {
+  final int specificity;
+  _TranslationPattern(String source, this.translation)
+    : specificity = source.replaceAll(RegExp(r'\{[^}]+\}'), '').length {
     final placeholder = RegExp(r'\{([a-zA-Z]+)\}');
     var offset = 0;
     var expression = '^';

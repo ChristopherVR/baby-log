@@ -18,6 +18,7 @@ class ReminderInfo {
   final String kind; // 'feed', 'pill' or 'routine'
   final String? medId;
   final String? babyId;
+  final String? language;
   final String title;
   final String body;
   final bool alarm;
@@ -29,6 +30,7 @@ class ReminderInfo {
     required this.body,
     this.medId,
     this.babyId,
+    this.language,
     this.alarm = false,
   });
 
@@ -37,6 +39,7 @@ class ReminderInfo {
     'kind': kind,
     'medId': ?medId,
     'babyId': ?babyId,
+    'language': language ?? AppLanguage.code,
     'title': tr(title),
     'body': tr(body),
     // Read by MainActivity.kt to show the alarm over the lock screen.
@@ -48,6 +51,7 @@ class ReminderInfo {
     kind: kind,
     medId: medId,
     babyId: babyId,
+    language: language,
     title: title,
     body: body,
     alarm: alarm,
@@ -62,6 +66,7 @@ class ReminderInfo {
         kind: j['kind'] as String,
         medId: j['medId'] as String?,
         babyId: j['babyId'] as String?,
+        language: j['language'] == 'af' ? 'af' : 'en',
         title: j['title'] as String? ?? '',
         body: j['body'] as String? ?? '',
         alarm: j['alarm'] == true,
@@ -79,6 +84,7 @@ Future<void> reminderActionInBackground(NotificationResponse response) async {
   DartPluginRegistrant.ensureInitialized();
   final info = ReminderInfo.parse(response.payload);
   if (response.actionId != Reminders.snoozeAction || info == null) return;
+  AppLanguage.use(info.language ?? 'en');
   final reminders = Reminders();
   await reminders._initPlugin();
   await reminders.snooze(info);

@@ -14,6 +14,10 @@ void main() {
   test('Afrikaans labels and templates preserve user-supplied values', () {
     expect(tr('Save routine', language: 'af'), 'Stoor roetine');
     expect(
+      tr('Next feed reminder at 18:00', language: 'af'),
+      'Volgende voedingsherinnering om 18:00',
+    );
+    expect(
       tr('Mark Robin’s bath as done', language: 'af'),
       'Merk Robin’s bath as gedoen',
     );
@@ -32,6 +36,8 @@ void main() {
       body: 'Reminder you set after the last feed',
     );
     final back = ReminderInfo.parse(info.toPayload())!;
+    expect(back.language, 'af');
+    expect(back.withId(920).language, 'af');
     expect(back.title, 'Robin: tyd vir ’n voeding');
     expect(back.body, 'Herinnering wat jy ná die laaste voeding ingestel het');
   });
