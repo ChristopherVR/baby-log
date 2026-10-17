@@ -8,8 +8,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'src/notifications.dart';
 import 'src/store.dart';
 import 'src/sync.dart';
-import 'src/updates.dart';
-import 'src/ui/update_card.dart';
+import 'src/ui/nighttime_banner.dart';
 import 'src/ui/changelog_dialog.dart';
 import 'src/ui/alarm_page.dart';
 import 'src/ui/common.dart';
@@ -115,14 +114,12 @@ class _BabyAppState extends State<BabyApp> with WidgetsBindingObserver {
     _lifecycle = AppLifecycleListener(
       onResume: () {
         widget.state.appResumed();
-        AppUpdates.instance.check();
         _showChangelog();
       },
       onHide: widget.state.appPaused,
     );
     Baby.dark = _wantDark;
     if (!widget.state.startedHeadless) {
-      AppUpdates.instance.check();
       WidgetsBinding.instance.addPostFrameCallback((_) => _showChangelog());
     }
   }
@@ -229,7 +226,7 @@ class _ShellState extends State<Shell> {
       body: PageWidth(
         child: Column(
           children: [
-            const UpdateCard(),
+            const NighttimeBanner(),
             const BabyPicker(),
             Expanded(
               child: IndexedStack(

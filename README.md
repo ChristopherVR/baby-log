@@ -83,6 +83,12 @@ Choose **English** or **Afrikaans** on the first setup screen or in **Settings �
 The choice takes effect immediately and is saved on that device. App controls, date pickers,
 dates and reminders use the chosen language. Each phone keeps its own choice.
 
+## Nighttime indicator
+
+From 6 pm to 6 am in the phone's local time, a moon-and-clock banner appears across the main
+tabs, including in light mode. It refreshes while open and when returning to the app, without
+changing the selected appearance or which day's logs are shown.
+
 ## Reminders
 
 - **Feed**: bell on the "Last feed" card → remind X hours after the start of the last feed.
@@ -103,10 +109,9 @@ dates and reminders use the chosen language. Each phone keeps its own choice.
 
 ## Automatic Android releases
 
-Android checks GitHub for a stable release on opening/resuming the app (at most once every six
-hours). A newer version with a matching `BabyLog-<version>.apk` shows **New update available**
-above the tabs. **Settings → App updates → Check for updates** checks immediately.
-Internet access is needed; baby logs are not sent to GitHub.
+Tap **Settings → This device → App version** to check GitHub for a stable release and open
+the update controls. Checks run only when you tap the version. Internet access is needed;
+baby logs are not sent to GitHub.
 
 Tap **Update** to download with progress, then confirm Android's installation prompt. The first
 time, Android may ask you to allow installations from Baby Log; return and tap **Update** again.

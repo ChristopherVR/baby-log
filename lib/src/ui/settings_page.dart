@@ -439,14 +439,6 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ),
     );
-    if (Platform.isAndroid) {
-      addSection('App updates', [
-        (
-          terms: ['Check for updates', 'Update', 'GitHub', 'App version'],
-          child: const UpdateCard(settings: true),
-        ),
-      ], card: false);
-    }
     addSection('This device', [
       (
         terms: ['Device name', app.deviceName],
@@ -468,12 +460,18 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ),
       (
-        terms: ['App version', AppState.appVersion],
+        terms: [
+          'App version',
+          AppState.appVersion,
+          'Check for updates',
+          'Update',
+          'GitHub',
+        ],
         child: _Tile(
           icon: Icons.info_outline_rounded,
           title: 'App version',
           value: AppState.appVersion,
-          onTap: () {},
+          onTap: () => showAppUpdates(context),
         ),
       ),
       (

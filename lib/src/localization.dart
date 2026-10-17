@@ -168,6 +168,9 @@ const afrikaans = <String, String>{
   'What’s new': 'Wat is nuut',
   'Version {version}': 'Weergawe {version}',
   'Got it': 'Goed so',
+  'Nighttime': 'Nagtyd',
+  'App updates are available on Android.':
+      'Appopdaterings is op Android beskikbaar.',
   'App updates': 'Appopdaterings',
   'New update available: {version}': 'Nuwe opdatering beskikbaar: {version}',
   'Update': 'Dateer op',

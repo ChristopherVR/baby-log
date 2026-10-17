@@ -5,65 +5,73 @@ import 'package:flutter/material.dart';
 import '../localization.dart';
 import '../updates.dart';
 
+Future<void> showAppUpdates(BuildContext context, {AppUpdates? updates}) {
+  final service = updates ?? AppUpdates.instance;
+  service.check(manual: true);
+  return showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const LText('App updates'),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(child: UpdateCard(updates: service)),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const LText('Close'),
+        ),
+      ],
+    ),
+  );
+}
+
 class UpdateCard extends StatelessWidget {
-  const UpdateCard({super.key, this.settings = false});
-  final bool settings;
+  const UpdateCard({super.key, this.updates});
+  final AppUpdates? updates;
 
   @override
   Widget build(BuildContext context) {
-    if (!Platform.isAndroid) return const SizedBox.shrink();
-    final updates = AppUpdates.instance;
+    final updates = this.updates ?? AppUpdates.instance;
     return ListenableBuilder(
       listenable: updates,
       builder: (context, _) {
-        if (!settings && updates.available == null) {
-          return const SizedBox.shrink();
-        }
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                LText(
-                  updates.available == null
-                      ? 'App updates'
-                      : 'New update available: ${updates.available!.version}',
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-                if (updates.message != null) ...[
-                  const SizedBox(height: 8),
-                  LText(updates.message!),
-                ],
-                if (updates.downloading) ...[
-                  const SizedBox(height: 8),
-                  LinearProgressIndicator(value: updates.progress),
-                  LText('Downloading: ${(updates.progress * 100).round()}%'),
-                ] else if (updates.available != null) ...[
-                  const SizedBox(height: 8),
-                  const LText(
-                    'Download from GitHub, then confirm installation in Android. Your logs stay on this device.',
-                  ),
-                  FilledButton.icon(
-                    onPressed: updates.install,
-                    icon: const Icon(Icons.system_update_rounded),
-                    label: const LText('Update'),
-                  ),
-                ],
-                if (settings)
-                  TextButton(
-                    onPressed: updates.checking || updates.downloading
-                        ? null
-                        : () => updates.check(manual: true),
-                    child: LText(
-                      updates.checking
-                          ? 'Checking for updates…'
-                          : 'Check for updates',
-                    ),
-                  ),
-              ],
-            ),
-          ),
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (updates.available != null)
+              LText(
+                'New update available: ${updates.available!.version}',
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+            if (updates.message != null) ...[
+              const SizedBox(height: 8),
+              LText(updates.message!),
+            ],
+            if (updates.downloading) ...[
+              const SizedBox(height: 8),
+              LinearProgressIndicator(value: updates.progress),
+              LText('Downloading: ${(updates.progress * 100).round()}%'),
+            ] else if (updates.available != null) ...[
+              const SizedBox(height: 8),
+              const LText(
+                'Download from GitHub, then confirm installation in Android. Your logs stay on this device.',
+              ),
+              FilledButton.icon(
+                onPressed: updates.checking ? null : updates.install,
+                icon: const Icon(Icons.system_update_rounded),
+                label: const LText('Update'),
+              ),
+            ],
+            if (updates.checking) ...[
+              const SizedBox(height: 8),
+              const LinearProgressIndicator(),
+              const LText('Checking for updates…'),
+            ],
+            if (!Platform.isAndroid)
+              const LText('App updates are available on Android.'),
+          ],
         );
       },
     );
