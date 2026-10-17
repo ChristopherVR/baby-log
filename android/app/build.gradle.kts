@@ -4,6 +4,8 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val ciKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")?.takeIf { it.isNotBlank() }
+
 android {
     namespace = "com.babyapp.baby_app"
     compileSdk = flutter.compileSdkVersion
@@ -30,11 +32,22 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (ciKeystorePath != null) {
+            create("ci") {
+                storeFile = file(ciKeystorePath)
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Preserve the existing installation's key, including on CI runners
+            // whose Android user home differs from the shell's home directory.
+            signingConfig = signingConfigs.getByName(if (ciKeystorePath != null) "ci" else "debug")
         }
     }
 }
