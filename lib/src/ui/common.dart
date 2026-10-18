@@ -214,7 +214,8 @@ void showUndo(BuildContext context, String message, VoidCallback onUndo) {
       SnackBar(
         content: LText(message),
         action: SnackBarAction(label: tr('Undo'), onPressed: onUndo),
-        duration: const Duration(seconds: 4),
+        duration: const Duration(seconds: 5),
+        persist: false,
       ),
     );
 }

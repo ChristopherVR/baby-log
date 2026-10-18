@@ -104,7 +104,7 @@ class _SetupPageState extends State<SetupPage> {
                     _Names(baby: _baby, device: _device),
                     const _Step(
                       title: 'Light or dark?',
-                      text: 'Dark is easier on the eyes during night feeds.',
+                      text: 'The app switches to dark from 6 pm to 6 am.',
                       child: AppearancePicker(),
                     ),
                     const _Reminders(),

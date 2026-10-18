@@ -169,6 +169,9 @@ const afrikaans = <String, String>{
   'Version {version}': 'Weergawe {version}',
   'Got it': 'Goed so',
   'Nighttime': 'Nagtyd',
+  'Dark mode for nighttime · until 6 am': 'Donker modus vir nagtyd · tot 06:00',
+  'The app switches to dark from 6 pm to 6 am.':
+      'Die toepassing skakel van 18:00 tot 06:00 na donker oor.',
   'App updates are available on Android.':
       'Appopdaterings is op Android beskikbaar.',
   'App updates': 'Appopdaterings',

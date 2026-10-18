@@ -249,6 +249,8 @@ Future<void> _showAppearanceSheet(BuildContext context) => showSheet(
     children: [
       SheetHeader(title: 'Appearance', glyph: Glyphs.dark),
       const AppearancePicker(),
+      const SizedBox(height: 16),
+      const LText('The app switches to dark from 6 pm to 6 am.'),
       const SizedBox(height: 8),
     ],
   ),

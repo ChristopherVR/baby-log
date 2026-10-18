@@ -97,11 +97,14 @@ Choose **English** or **Afrikaans** on the first setup screen or in **Settings â
 The choice takes effect immediately and is saved on that device. App controls, date pickers,
 dates and reminders use the chosen language. Each phone keeps its own choice.
 
-## Nighttime indicator
+## Nighttime appearance
 
-From 6 pm to 6 am in the phone's local time, a moon-and-clock banner appears across the main
-tabs, including in light mode. It refreshes while open and when returning to the app, without
-changing the selected appearance or which day's logs are shown.
+From 6 pm to 6 am in the phone's local time, the entire app uses its dark palette, including
+settings, sheets and dialogs. It switches automatically while open and when returning to the
+app. At 6 am it returns to the selected Light, Dark or Match phone appearance. The saved
+appearance and selected log date do not change.
+A small moon indicator explains "Dark mode for nighttime Â· until 6 am" across all screens,
+and disappears during the day, including when the selected appearance stays dark.
 
 ## Reminders
 

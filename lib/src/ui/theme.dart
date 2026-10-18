@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 /// Soft pastel palette, one colour family per kind of entry. Every colour has
 /// a light and a dark value; [dark] is switched by the app from the
-/// appearance setting.
+/// appearance setting and local nighttime schedule.
 abstract final class Baby {
   static bool dark = false;
 

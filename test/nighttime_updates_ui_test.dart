@@ -1,8 +1,9 @@
 import 'dart:io';
 
+import 'package:baby_app/main.dart';
 import 'package:baby_app/src/store.dart';
 import 'package:baby_app/src/ui/common.dart';
-import 'package:baby_app/src/ui/nighttime_banner.dart';
+import 'package:baby_app/src/ui/nighttime.dart';
 import 'package:baby_app/src/ui/settings_page.dart';
 import 'package:baby_app/src/ui/theme.dart';
 import 'package:baby_app/src/ui/update_card.dart';
@@ -41,33 +42,131 @@ void main() {
   });
 
   testWidgets(
-    'nighttime remains explicit in light mode and disappears by day',
+    'whole app switches at dusk and dawn and preserves daytime appearance',
     (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: babyTheme(),
-          home: Scaffold(
-            body: NighttimeIndicator(time: DateTime(2026, 10, 17, 21, 30)),
-          ),
+      await tester.binding.setSurfaceSize(const Size(430, 932));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final app = (await tester.runAsync(
+        () => AppState.loadForTesting(
+          File('unused-nighttime-test.json'),
+          persist: false,
         ),
-      );
-      expect(find.text('Nighttime'), findsOneWidget);
-      expect(find.text('21:30'), findsOneWidget);
-      expect(find.byIcon(Icons.nightlight_round), findsOneWidget);
+      ))!;
+      addTearDown(app.dispose);
+      var now = DateTime(2026, 10, 17, 17, 59, 59);
+      await tester.pumpWidget(BabyApp(state: app, now: () => now));
+      await tester.pumpAndSettle();
       expect(Baby.dark, isFalse);
+      expect(find.byType(NighttimeNotice), findsNothing);
+      now = DateTime(2026, 10, 17, 18);
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      expect(Baby.dark, isTrue);
+      expect(find.text('Dark mode for nighttime · until 6 am'), findsOneWidget);
       expect(
-        Theme.of(tester.element(find.text('Nighttime'))).brightness,
-        Brightness.light,
-      );
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: babyTheme(),
-          home: Scaffold(
-            body: NighttimeIndicator(time: DateTime(2026, 10, 18, 6)),
-          ),
-        ),
+        tester.widget<MaterialApp>(find.byType(MaterialApp)).theme!.brightness,
+        Brightness.dark,
       );
       expect(find.text('Nighttime'), findsNothing);
+      expect(app.appearance, 'light');
+      await tester.tap(find.text('Skip'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Settings'));
+      await tester.pumpAndSettle();
+      expect(find.byType(NighttimeNotice), findsOneWidget);
+      expect(
+        Theme.of(tester.element(find.byType(SettingsPage))).brightness,
+        Brightness.dark,
+      );
+      now = DateTime(2026, 10, 18, 6);
+      await tester.pump(const Duration(hours: 12));
+      await tester.pumpAndSettle();
+      expect(Baby.dark, isFalse);
+      expect(find.byType(NighttimeNotice), findsNothing);
+      expect(
+        Theme.of(tester.element(find.byType(SettingsPage))).brightness,
+        Brightness.light,
+      );
+      expect(
+        tester.widget<MaterialApp>(find.byType(MaterialApp)).theme!.brightness,
+        Brightness.light,
+      );
+      app.setAppearance('dark');
+      await tester.pumpAndSettle();
+      expect(Baby.dark, isTrue);
+      expect(find.byType(NighttimeNotice), findsNothing);
+      now = DateTime(2026, 10, 18, 18);
+      await tester.pump(const Duration(hours: 12));
+      await tester.pumpAndSettle();
+      expect(Baby.dark, isTrue);
+      expect(find.byType(NighttimeNotice), findsOneWidget);
+      now = DateTime(2026, 10, 19, 6);
+      await tester.pump(const Duration(hours: 12));
+      await tester.pumpAndSettle();
+      expect(Baby.dark, isTrue);
+      expect(find.byType(NighttimeNotice), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets('nighttime is applied immediately and refreshed on resume', (
+    tester,
+  ) async {
+    final app = (await tester.runAsync(
+      () => AppState.loadForTesting(
+        File('unused-nighttime-resume-test.json'),
+        persist: false,
+      ),
+    ))!;
+    addTearDown(app.dispose);
+    var now = DateTime(2026, 10, 17, 23);
+    await tester.pumpWidget(BabyApp(state: app, now: () => now));
+    await tester.pumpAndSettle();
+    expect(Baby.dark, isTrue);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    now = DateTime(2026, 10, 18, 7);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(Baby.dark, isFalse);
+    app.appPaused();
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+    'undo is actionable and automatically dismisses after 5 seconds',
+    (tester) async {
+      var undos = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showUndo(context, 'Saved', () => undos++),
+                child: const Text('Save'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 4));
+      expect(find.text('Undo'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      expect(find.text('Saved'), findsNothing);
+      expect(find.text('Undo'), findsNothing);
+      expect(undos, 0);
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Undo'));
+      await tester.pumpAndSettle();
+      expect(undos, 1);
+      expect(find.text('Undo'), findsNothing);
     },
   );
 

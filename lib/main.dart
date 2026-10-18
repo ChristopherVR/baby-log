@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
@@ -8,7 +9,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'src/notifications.dart';
 import 'src/store.dart';
 import 'src/sync.dart';
-import 'src/ui/nighttime_banner.dart';
+import 'src/ui/nighttime.dart';
 import 'src/ui/changelog_dialog.dart';
 import 'src/ui/alarm_page.dart';
 import 'src/ui/common.dart';
@@ -50,9 +51,12 @@ Future<void> main(List<String> args) async {
 }
 
 class BabyApp extends StatefulWidget {
-  const BabyApp({super.key, required this.state, this.profile = ''});
+  const BabyApp({super.key, required this.state, this.profile = '', this.now});
   final AppState state;
   final String profile;
+
+  /// Local clock, injectable for testing day/night transitions.
+  final DateTime Function()? now;
 
   @override
   State<BabyApp> createState() => _BabyAppState();
@@ -60,7 +64,24 @@ class BabyApp extends StatefulWidget {
 
 class _BabyAppState extends State<BabyApp> with WidgetsBindingObserver {
   late String _language;
+  late bool _nighttime;
   final _navigator = GlobalKey<NavigatorState>();
+  Timer? _appearanceTimer;
+  DateTime get _now => widget.now?.call() ?? DateTime.now();
+
+  void _scheduleAppearance() {
+    _appearanceTimer?.cancel();
+    final now = _now;
+    final next = now.hour < 6
+        ? DateTime(now.year, now.month, now.day, 6)
+        : now.hour < 18
+        ? DateTime(now.year, now.month, now.day, 18)
+        : DateTime(now.year, now.month, now.day + 1, 6);
+    _appearanceTimer = Timer(next.difference(now), () {
+      _applyAppearance();
+      _scheduleAppearance();
+    });
+  }
 
   /// A reminder was opened (tapped, or shown full screen as an alarm).
   void _openReminder(ReminderInfo info) => _navigator.currentState?.push(
@@ -100,6 +121,7 @@ class _BabyAppState extends State<BabyApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     _language = widget.state.language;
+    _nighttime = isNighttime(_now);
     AppLanguage.use(_language);
     WidgetsBinding.instance.addObserver(this);
     widget.state.addListener(_applyAppearance);
@@ -113,12 +135,18 @@ class _BabyAppState extends State<BabyApp> with WidgetsBindingObserver {
     }
     _lifecycle = AppLifecycleListener(
       onResume: () {
+        _applyAppearance();
+        _scheduleAppearance();
         widget.state.appResumed();
         _showChangelog();
       },
       onHide: widget.state.appPaused,
+      onStateChange: (state) {
+        if (state != AppLifecycleState.resumed) _appearanceTimer?.cancel();
+      },
     );
     Baby.dark = _wantDark;
+    _scheduleAppearance();
     if (!widget.state.startedHeadless) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _showChangelog());
     }
@@ -128,6 +156,7 @@ class _BabyAppState extends State<BabyApp> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     widget.state.removeListener(_applyAppearance);
+    _appearanceTimer?.cancel();
     _lifecycle.dispose();
     super.dispose();
   }
@@ -135,18 +164,26 @@ class _BabyAppState extends State<BabyApp> with WidgetsBindingObserver {
   @override
   void didChangePlatformBrightness() => _applyAppearance();
 
-  bool get _wantDark => switch (widget.state.appearance) {
-    'dark' => true,
-    'system' =>
-      PlatformDispatcher.instance.platformBrightness == Brightness.dark,
-    _ => false,
-  };
+  bool get _wantDark =>
+      isNighttime(_now) ||
+      switch (widget.state.appearance) {
+        'dark' => true,
+        'system' =>
+          PlatformDispatcher.instance.platformBrightness == Brightness.dark,
+        _ => false,
+      };
 
   /// The palette is read directly by many widgets, so when it flips every
   /// widget is rebuilt, not just those that depend on the Theme.
   void _applyAppearance() {
     final dark = _wantDark;
-    if (dark == Baby.dark && _language == widget.state.language) return;
+    final nighttime = isNighttime(_now);
+    if (dark == Baby.dark &&
+        nighttime == _nighttime &&
+        _language == widget.state.language) {
+      return;
+    }
+    _nighttime = nighttime;
     _language = widget.state.language;
     AppLanguage.use(_language);
     Baby.dark = dark;
@@ -172,6 +209,20 @@ class _BabyAppState extends State<BabyApp> with WidgetsBindingObserver {
         debugShowCheckedModeBanner: false,
         theme: babyTheme(),
         themeAnimationDuration: Duration.zero,
+        builder: (context, child) => Column(
+          children: [
+            if (_nighttime) const NighttimeNotice(),
+            Expanded(
+              child: _nighttime
+                  ? MediaQuery.removePadding(
+                      context: context,
+                      removeTop: true,
+                      child: child!,
+                    )
+                  : child!,
+            ),
+          ],
+        ),
         // Lists can also be dragged with a mouse (Windows testing), e.g. pull to refresh.
         scrollBehavior: const MaterialScrollBehavior().copyWith(
           dragDevices: PointerDeviceKind.values.toSet(),
@@ -226,7 +277,6 @@ class _ShellState extends State<Shell> {
       body: PageWidth(
         child: Column(
           children: [
-            const NighttimeBanner(),
             const BabyPicker(),
             Expanded(
               child: IndexedStack(
