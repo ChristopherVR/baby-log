@@ -69,171 +69,195 @@ class _HomePageState extends State<HomePage> {
     _setTick(_visible ? const Duration(seconds: 30) : null);
     final today = app.entriesOn(DateTime.now());
 
-    return PullToSync(
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 0, 4, 16),
-            child: LText(
-              '${greeting()} · ${DateFormat('EEEE d MMMM').format(DateTime.now())}',
-              style: TextStyle(color: Baby.muted, fontWeight: FontWeight.w700),
-            ),
-          ),
-          Card(
-            color: Baby.pillSoft,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final stacked =
-                    constraints.maxWidth <
-                    360 * MediaQuery.textScalerOf(context).scale(1);
-                final action = FilledButton(
-                  onPressed: () {
-                    final nap = app.activeSleep;
-                    if (nap == null) {
-                      showSheet(context, const SleepSheet());
-                    } else {
-                      app.endSleep(nap);
-                    }
-                  },
-                  child: LText(
-                    app.activeSleep == null ? 'Start nap' : 'End nap',
-                  ),
-                );
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    ListTile(
-                      leading: Glyphs.sleep(28, Baby.pill),
-                      title: LText(
-                        app.activeSleep == null ? 'Sleep' : 'Sleeping',
-                      ),
-                      subtitle: LText(
-                        app.activeSleep == null
-                            ? 'Put down for a nap'
-                            : '${hm(app.activeSleep!.time)} · ${duration(DateTime.now().difference(app.activeSleep!.time))}',
-                      ),
-                      trailing: stacked ? null : action,
-                    ),
-                    if (stacked)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: action,
-                        ),
-                      ),
-                  ],
-                );
+    final overview = <Widget>[
+      Card(
+        color: Baby.pillSoft,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final stacked =
+                constraints.maxWidth <
+                360 * MediaQuery.textScalerOf(context).scale(1);
+            final action = FilledButton(
+              onPressed: () {
+                final nap = app.activeSleep;
+                if (nap == null) {
+                  showSheet(context, const SleepSheet());
+                } else {
+                  app.endSleep(nap);
+                }
               },
-            ),
-          ),
-          const SizedBox(height: 14),
-          RoutinePreview(onOpen: widget.onSeeRoutines),
-          const SizedBox(height: 14),
-          if (app.timerStart != null) ...[
-            _TimerCard(app: app),
-            const SizedBox(height: 14),
-          ],
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: ActionTile(
-                  glyph: Glyphs.feed,
-                  label: 'Feed',
-                  hint: app.suggestedSide != null
-                      ? 'Next: ${sideLabel(app.suggestedSide!)}'
-                      : 'Log a feed',
-                  soft: Baby.feedSoft,
-                  strong: Baby.feed,
-                  onTap: () => showSheet(context, const FeedSheet()),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: ActionTile(
-                  glyph: Glyphs.nappy,
-                  label: 'Nappy',
-                  hint: app.lastNappy == null
-                      ? 'Pee or poo'
-                      : ago(app.lastNappy!.time),
-                  soft: Baby.nappySoft,
-                  strong: Baby.nappy,
-                  onTap: () => showSheet(context, const NappySheet()),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: ActionTile(
-                  glyph: Glyphs.pill,
-                  label: 'Pill',
-                  hint: _pillHint(app),
-                  soft: Baby.pillSoft,
-                  strong: Baby.pill,
-                  onTap: () => _pillTap(context, app),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(child: _LastFeedCard(app: app)),
-              const SizedBox(width: 10),
-              Expanded(child: _LastNappyCard(app: app)),
-            ],
-          ),
-          const SizedBox(height: 10),
-          _ReminderRow(app: app),
-          SectionTitle(
-            'Today',
-            trailing: Counts(
-              feeds: today.where((e) => e.type == EntryType.feed).length,
-              pee: today
-                  .where(
-                    (e) =>
-                        e.type == EntryType.nappy && e.nappy != NappyKind.poo,
-                  )
-                  .length,
-              poo: today
-                  .where(
-                    (e) =>
-                        e.type == EntryType.nappy && e.nappy != NappyKind.pee,
-                  )
-                  .length,
-            ),
-          ),
-          if (today.isEmpty)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: LText(
-                  'Nothing logged yet today.\nTap Feed, Nappy or Pill above to start.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Baby.muted,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            )
-          else
-            ListCard(
+              child: LText(app.activeSleep == null ? 'Start nap' : 'End nap'),
+            );
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (final e in today.take(8))
-                  EntryTile(entry: e, onTap: () => editEntry(context, e)),
+                ListTile(
+                  leading: Glyphs.sleep(28, Baby.pill),
+                  title: LText(app.activeSleep == null ? 'Sleep' : 'Sleeping'),
+                  subtitle: LText(
+                    app.activeSleep == null
+                        ? 'Put down for a nap'
+                        : '${hm(app.activeSleep!.time)} · ${duration(DateTime.now().difference(app.activeSleep!.time))}',
+                  ),
+                  trailing: stacked ? null : action,
+                ),
+                if (stacked)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: action,
+                    ),
+                  ),
               ],
+            );
+          },
+        ),
+      ),
+      const SizedBox(height: 14),
+      RoutinePreview(onOpen: widget.onSeeRoutines),
+      const SizedBox(height: 14),
+      if (app.timerStart != null) ...[
+        _TimerCard(app: app),
+        const SizedBox(height: 14),
+      ],
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: ActionTile(
+              glyph: Glyphs.feed,
+              label: 'Feed',
+              hint: app.suggestedSide != null
+                  ? 'Next: ${sideLabel(app.suggestedSide!)}'
+                  : 'Log a feed',
+              soft: Baby.feedSoft,
+              strong: Baby.feed,
+              onTap: () => showSheet(context, const FeedSheet()),
             ),
-          Align(
-            child: TextButton.icon(
-              onPressed: widget.onSeeHistory,
-              icon: const Icon(Icons.history_rounded),
-              label: const LText('See all history'),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: ActionTile(
+              glyph: Glyphs.nappy,
+              label: 'Nappy',
+              hint: app.lastNappy == null
+                  ? 'Pee or poo'
+                  : ago(app.lastNappy!.time),
+              soft: Baby.nappySoft,
+              strong: Baby.nappy,
+              onTap: () => showSheet(context, const NappySheet()),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: ActionTile(
+              glyph: Glyphs.pill,
+              label: 'Pill',
+              hint: _pillHint(app),
+              soft: Baby.pillSoft,
+              strong: Baby.pill,
+              onTap: () => _pillTap(context, app),
             ),
           ),
         ],
+      ),
+      const SizedBox(height: 14),
+      Row(
+        children: [
+          Expanded(child: _LastFeedCard(app: app)),
+          const SizedBox(width: 10),
+          Expanded(child: _LastNappyCard(app: app)),
+        ],
+      ),
+      const SizedBox(height: 10),
+      _ReminderRow(app: app),
+    ];
+    final activity = <Widget>[
+      SectionTitle(
+        'Today',
+        trailing: Counts(
+          feeds: today.where((e) => e.type == EntryType.feed).length,
+          pee: today
+              .where(
+                (e) => e.type == EntryType.nappy && e.nappy != NappyKind.poo,
+              )
+              .length,
+          poo: today
+              .where(
+                (e) => e.type == EntryType.nappy && e.nappy != NappyKind.pee,
+              )
+              .length,
+        ),
+      ),
+      if (today.isEmpty)
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: LText(
+              'Nothing logged yet today.\nTap Feed, Nappy or Pill above to start.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Baby.muted, fontWeight: FontWeight.w600),
+            ),
+          ),
+        )
+      else
+        ListCard(
+          children: [
+            for (final e in today.take(8))
+              EntryTile(entry: e, onTap: () => editEntry(context, e)),
+          ],
+        ),
+      Align(
+        child: TextButton.icon(
+          onPressed: widget.onSeeHistory,
+          icon: const Icon(Icons.history_rounded),
+          label: const LText('See all history'),
+        ),
+      ),
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) => PullToSync(
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 0, 4, 16),
+              child: LText(
+                '${greeting()} · ${DateFormat('EEEE d MMMM').format(DateTime.now())}',
+                style: TextStyle(
+                  color: Baby.muted,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            if (constraints.maxWidth >= 900)
+              Row(
+                key: const ValueKey('today-columns'),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: overview,
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: activity,
+                    ),
+                  ),
+                ],
+              )
+            else ...[
+              ...overview,
+              ...activity,
+            ],
+          ],
+        ),
       ),
     );
   }

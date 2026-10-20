@@ -54,6 +54,7 @@ class _AlarmPageState extends State<AlarmPage> {
         backgroundColor: soft,
         body: SafeArea(
           child: PageWidth(
+            maxWidth: 560,
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Column(

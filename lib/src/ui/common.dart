@@ -264,44 +264,86 @@ class PullToSync extends StatelessWidget {
   Widget build(BuildContext context) => RefreshIndicator(
     color: Baby.primary,
     backgroundColor: Baby.card,
-    onRefresh: onRefresh ?? () => _syncAll(context),
+    onRefresh: onRefresh ?? () => refreshAndSync(context),
     child: child,
   );
+}
 
-  static Future<void> _syncAll(BuildContext context) async {
-    final app = context.findAncestorWidgetOfExactType<AppScope>()!.notifier!;
-    await app.refreshIps();
-    if (app.peers.isEmpty) {
-      if (context.mounted) {
-        showMessage(
-          context,
-          'Up to date. Pair the other phone in Settings to sync.',
-        );
-      }
-      return;
+/// The same explicit sync action for touch gestures and the toolbar button.
+Future<void> refreshAndSync(BuildContext context) async {
+  final app = context.findAncestorWidgetOfExactType<AppScope>()!.notifier!;
+  await app.refreshIps();
+  if (app.peers.isEmpty) {
+    if (context.mounted) {
+      showMessage(
+        context,
+        'Up to date. Pair the other phone in Settings to sync.',
+      );
     }
-    final error = await app.syncAll(force: true);
-    if (!context.mounted) return;
-    final names = app.peers
-        .map((p) => p.name.isEmpty ? p.host : p.name)
-        .join(', ');
-    showMessage(
-      context,
-      error == null ? 'Synced with $names' : 'Could not sync: $error',
+    return;
+  }
+  final error = await app.syncAll(force: true);
+  if (!context.mounted) return;
+  final names = app.peers
+      .map((p) => p.name.isEmpty ? p.host : p.name)
+      .join(', ');
+  showMessage(
+    context,
+    error == null ? 'Synced with $names' : 'Could not sync: $error',
+  );
+}
+
+/// Mouse/keyboard alternative to pulling down a list on touch screens.
+class RefreshSyncButton extends StatefulWidget {
+  const RefreshSyncButton({super.key, this.onRefresh});
+  final Future<void> Function()? onRefresh;
+
+  @override
+  State<RefreshSyncButton> createState() => _RefreshSyncButtonState();
+}
+
+class _RefreshSyncButtonState extends State<RefreshSyncButton> {
+  bool _refreshing = false;
+
+  Future<void> _refresh() async {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    try {
+      await (widget.onRefresh?.call() ?? refreshAndSync(context));
+    } catch (error) {
+      if (mounted) showMessage(context, 'Could not sync: $error');
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final busy = _refreshing || AppScope.of(context).syncing;
+    return LIconButton(
+      tooltip: busy ? 'Refreshing' : 'Refresh',
+      onPressed: busy ? null : _refresh,
+      icon: busy
+          ? const SizedBox.square(
+              dimension: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.refresh_rounded),
     );
   }
 }
 
-/// Keeps content phone-width on wide (desktop) windows.
+/// Fluid content width with a comfortable limit on large desktop displays.
 class PageWidth extends StatelessWidget {
-  const PageWidth({super.key, required this.child});
+  const PageWidth({super.key, required this.child, this.maxWidth = 1200});
   final Widget child;
+  final double maxWidth;
 
   @override
   Widget build(BuildContext context) => Align(
     alignment: Alignment.topCenter,
     child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 560),
+      constraints: BoxConstraints(maxWidth: maxWidth),
       child: child,
     ),
   );

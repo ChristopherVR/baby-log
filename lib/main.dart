@@ -260,79 +260,116 @@ class _ShellState extends State<Shell> {
       3 => 'Routines',
       _ => 'Growth',
     };
-    return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 64,
-        title: LText(
-          widget.profile.isEmpty ? title : '$title [${widget.profile}]',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        actions: [
-          SyncChip(
-            compact:
-                MediaQuery.sizeOf(context).width <
-                380 * MediaQuery.textScalerOf(context).scale(1),
-          ),
-          LIconButton(
-            tooltip: 'Settings',
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => openSettings(context),
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
-      body: PageWidth(
-        child: Column(
-          children: [
-            const BabyPicker(),
-            Expanded(
-              child: IndexedStack(
-                index: tab,
-                children: [
-                  HomePage(
-                    onSeeHistory: () => setState(() => tab = 1),
-                    onSeeRoutines: () => setState(() => tab = 3),
-                  ),
-                  const HistoryPage(),
-                  const PillsPage(),
-                  const RoutinesPage(),
-                  const GrowthPage(),
-                ],
-              ),
+    const destinations = [
+      ('Today', Icons.home_outlined, Icons.home_rounded),
+      ('History', Icons.history_rounded, Icons.history_rounded),
+      ('Pills', Icons.medication_outlined, Icons.medication_rounded),
+      ('Routines', Icons.event_repeat_rounded, Icons.event_repeat_rounded),
+      ('Growth', Icons.photo_album_outlined, Icons.photo_album_rounded),
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 840;
+        return Scaffold(
+          appBar: AppBar(
+            toolbarHeight: 64,
+            title: LText(
+              widget.profile.isEmpty ? title : '$title [${widget.profile}]',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: tab,
-        onDestinationSelected: (i) => setState(() => tab = i),
-        destinations: [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
-            label: tr('Today'),
+            actions: [
+              const RefreshSyncButton(),
+              SyncChip(
+                compact:
+                    constraints.maxWidth <
+                    380 * MediaQuery.textScalerOf(context).scale(14) / 14,
+              ),
+              LIconButton(
+                tooltip: 'Settings',
+                icon: const Icon(Icons.settings_outlined),
+                onPressed: () => openSettings(context),
+              ),
+              const SizedBox(width: 4),
+            ],
           ),
-          NavigationDestination(
-            icon: Icon(Icons.history_rounded),
-            label: tr('History'),
+          body: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (wide) ...[
+                LayoutBuilder(
+                  builder: (context, railSize) => SingleChildScrollView(
+                    child: SizedBox(
+                      height: railSize.maxHeight.clamp(460.0, double.infinity),
+                      child: NavigationRail(
+                        extended: constraints.maxWidth >= 1440,
+                        minExtendedWidth: 200,
+                        backgroundColor: Baby.card,
+                        selectedIndex: tab,
+                        onDestinationSelected: (value) =>
+                            setState(() => tab = value),
+                        labelType: constraints.maxWidth >= 1440
+                            ? NavigationRailLabelType.none
+                            : NavigationRailLabelType.all,
+                        destinations: [
+                          for (final (label, icon, selectedIcon)
+                              in destinations)
+                            NavigationRailDestination(
+                              icon: Icon(icon),
+                              selectedIcon: Icon(selectedIcon),
+                              label: LText(label),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                VerticalDivider(width: 1, color: Baby.line),
+              ],
+              Expanded(
+                // Keep the tab subtree when the rail appears/disappears on resize.
+                key: const ValueKey('shell-content'),
+                child: PageWidth(
+                  child: Column(
+                    children: [
+                      const BabyPicker(),
+                      Expanded(
+                        child: IndexedStack(
+                          index: tab,
+                          children: [
+                            HomePage(
+                              onSeeHistory: () => setState(() => tab = 1),
+                              onSeeRoutines: () => setState(() => tab = 3),
+                            ),
+                            const HistoryPage(),
+                            const PillsPage(),
+                            const RoutinesPage(),
+                            const GrowthPage(),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-          NavigationDestination(
-            icon: Icon(Icons.medication_outlined),
-            selectedIcon: Icon(Icons.medication_rounded),
-            label: tr('Pills'),
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.event_repeat_rounded),
-            label: tr('Routines'),
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.photo_album_outlined),
-            selectedIcon: Icon(Icons.photo_album_rounded),
-            label: tr('Growth'),
-          ),
-        ],
-      ),
+          bottomNavigationBar: wide
+              ? null
+              : NavigationBar(
+                  selectedIndex: tab,
+                  onDestinationSelected: (value) => setState(() => tab = value),
+                  destinations: [
+                    for (final (label, icon, selectedIcon) in destinations)
+                      NavigationDestination(
+                        icon: Icon(icon),
+                        selectedIcon: Icon(selectedIcon),
+                        label: tr(label),
+                      ),
+                  ],
+                ),
+        );
+      },
     );
   }
 }

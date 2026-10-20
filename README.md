@@ -20,6 +20,11 @@ address and code too. Windows uses the same Wi-Fi sync protocol, incremental cha
 merge rules, version checks and address rediscovery as Android. The PC can display
 QR codes; camera scanning is available only on phones. Closing the PC app stops syncing.
 
+Resize the window to suit your screen. Wider windows use side navigation and put today's
+care controls beside the activity log; narrow windows keep bottom navigation and one column.
+The refresh button in the top bar runs the same sync as pull-to-refresh, with progress and
+result feedback. Your selected tab and history search stay in place when resizing.
+
 To update, close the app and extract the new ZIP into a new folder. Local data is
 stored separately and is preserved. Windows has no in-app updater.
 

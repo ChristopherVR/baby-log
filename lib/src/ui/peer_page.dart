@@ -87,6 +87,7 @@ class PeerPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: LText(name)),
       body: PageWidth(
+        maxWidth: 560,
         child: PullToSync(
           onRefresh: sync,
           child: ListView(

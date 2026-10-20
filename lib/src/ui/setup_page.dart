@@ -66,6 +66,7 @@ class _SetupPageState extends State<SetupPage> {
     return Scaffold(
       body: SafeArea(
         child: PageWidth(
+          maxWidth: 560,
           child: Column(
             children: [
               Padding(

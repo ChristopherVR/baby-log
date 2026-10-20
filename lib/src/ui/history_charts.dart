@@ -15,7 +15,10 @@ class ChartsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const LText('Charts')),
+    appBar: AppBar(
+      title: const LText('Charts'),
+      actions: const [RefreshSyncButton()],
+    ),
     body: PageWidth(
       child: Column(
         children: [

@@ -52,6 +52,7 @@ class _QrSyncPageState extends State<QrSyncPage> {
     return Scaffold(
       appBar: AppBar(title: const LText('Sync by QR code')),
       body: PageWidth(
+        maxWidth: 560,
         child: ListView(
           padding: EdgeInsets.fromLTRB(
             16,
