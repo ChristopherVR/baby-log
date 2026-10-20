@@ -1,4 +1,5 @@
 /.gradle
+/build/
 /captures/
 /local.properties
 GeneratedPluginRegistrant.java
@@ -9,3 +10,5 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+play-signing.properties

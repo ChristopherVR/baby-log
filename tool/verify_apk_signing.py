@@ -14,13 +14,14 @@ def main() -> None:
     ])
     expected = hashlib.sha256(certificate).hexdigest()
     sdk = Path(os.environ.get("ANDROID_HOME") or os.environ["ANDROID_SDK_ROOT"])
-    candidates = [p for p in (sdk / "build-tools").glob("*/apksigner") if p.is_file()]
+    name = "apksigner.bat" if os.name == "nt" else "apksigner"
+    candidates = [p for p in (sdk / "build-tools").glob(f"*/{name}") if p.is_file()]
     if not candidates:
         raise SystemExit("Android apksigner is required to verify release signing")
     signer = max(candidates, key=lambda p: tuple(int(n) for n in re.findall(r"\d+", p.parent.name)))
     result = subprocess.check_output([
         str(signer), "verify", "--print-certs",
-        "build/app/outputs/flutter-apk/app-release.apk",
+        "build/app/outputs/flutter-apk/app-github-release.apk",
     ], text=True)
     actual = re.findall(r"certificate SHA-256 digest:\s*([0-9a-fA-F]+)", result)
     if actual != [expected]:

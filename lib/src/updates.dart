@@ -61,6 +61,7 @@ class AppRelease {
 class AppUpdates extends ChangeNotifier {
   static final instance = AppUpdates();
   static const _channel = MethodChannel('babylog/updates');
+  bool get usesPlayStore => appFlavor == 'play';
   AppRelease? available;
   bool checking = false;
   bool downloading = false;
@@ -71,7 +72,7 @@ class AppUpdates extends ChangeNotifier {
   String? _downloadedVersion;
 
   Future<void> check({bool manual = false}) async {
-    if (!Platform.isAndroid || checking || downloading) return;
+    if (usesPlayStore || !Platform.isAndroid || checking || downloading) return;
     if (!manual &&
         _lastCheck != null &&
         DateTime.now().difference(_lastCheck!) < const Duration(hours: 6)) {
@@ -126,7 +127,12 @@ class AppUpdates extends ChangeNotifier {
   /// Opens Android's installer or its per-app installation permission page.
   Future<void> install() async {
     final release = available;
-    if (release == null || downloading || !Platform.isAndroid) return;
+    if (usesPlayStore ||
+        release == null ||
+        downloading ||
+        !Platform.isAndroid) {
+      return;
+    }
     downloading = true;
     message = null;
     notifyListeners();
@@ -195,6 +201,17 @@ class AppUpdates extends ChangeNotifier {
       }
       downloading = false;
       progress = 0;
+      notifyListeners();
+    }
+  }
+
+  Future<void> openStore() async {
+    if (!usesPlayStore || !Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod<void>('openStore');
+    } catch (_) {
+      message =
+          'Could not open Google Play. Open the Play Store to update Baby Log.';
       notifyListeners();
     }
   }

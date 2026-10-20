@@ -256,6 +256,11 @@ const afrikaans = <String, String>{
   'App updates are available on Android.':
       'Appopdaterings is op Android beskikbaar.',
   'App updates': 'Appopdaterings',
+  'Updates for this version are provided by Google Play.':
+      'Opdaterings vir hierdie weergawe word deur Google Play verskaf.',
+  'Open Google Play': 'Maak Google Play oop',
+  'Could not open Google Play. Open the Play Store to update Baby Log.':
+      'Kon nie Google Play oopmaak nie. Maak die Play Winkel oop om Baby Log op te dateer.',
   'New update available: {version}': 'Nuwe opdatering beskikbaar: {version}',
   'Update': 'Dateer op',
   'Check for updates': 'Kyk vir opdaterings',

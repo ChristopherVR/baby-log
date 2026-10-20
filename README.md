@@ -46,11 +46,70 @@ In B: Settings (gear) → Type code → address `<A's IP>:8765` and A's code, or
 ## Install on Android
 
 ```powershell
-flutter build apk --release
-adb install build\app\outputs\flutter-apk\app-release.apk   # or copy the APK to the phone
+flutter build apk --flavor github --release
+adb install build\app\outputs\flutter-apk\app-github-release.apk   # or copy the APK to the phone
 ```
 
-Or with the phone plugged in (USB debugging on): `flutter run`.
+Or with the phone plugged in (USB debugging on): `flutter run --flavor github`.
+
+## GitHub and Google Play Android builds
+
+Two Android flavors share the same application ID (`com.babyapp.baby_app`),
+versioning, data format and Wi-Fi/QR sync logic:
+
+- `github`: preserves the existing APK signing key, GitHub update check and APK installer.
+- `play`: has no APK installer, installation permission or update FileProvider. The version
+  dialog opens Google Play, which manages updates. Play releases require a separate upload
+  key and never fall back to debug signing.
+
+Build the Play bundle after configuring signing:
+
+```powershell
+flutter build appbundle --flavor play --release
+# build/app/outputs/bundle/playRelease/app-play-release.aab
+```
+
+For local signing, copy `android/play-signing.properties.example` to
+`android/play-signing.properties` and fill in your upload keystore path, alias and passwords.
+The filled-in file and keystores are ignored by Git. Back up the upload keystore and credentials
+outside the repository. Environment variables override the local file:
+`PLAY_UPLOAD_KEYSTORE_PATH`, `PLAY_UPLOAD_STORE_PASSWORD`, `PLAY_UPLOAD_KEY_ALIAS`,
+`PLAY_UPLOAD_KEY_PASSWORD`.
+
+For CI, configure these repository Actions secrets:
+
+| Secret | Value |
+| --- | --- |
+| `PLAY_UPLOAD_KEYSTORE` | Base64-encoded upload keystore file |
+| `PLAY_UPLOAD_STORE_PASSWORD` | Keystore password |
+| `PLAY_UPLOAD_KEY_ALIAS` | Upload key alias |
+| `PLAY_UPLOAD_KEY_PASSWORD` | Key password |
+
+When the keystore secret exists, every main release also builds and verifies a Play AAB using
+that release's shared version and notes. Download the `BabyLog-<version>-play-internal` artifact
+from the successful Actions run. It contains `BabyLog-<version>-play.aab`; it is not attached to
+GitHub Releases. An absent `PLAY_UPLOAD_KEYSTORE` secret skips the Play job without affecting
+APK/Windows releases. If a key is configured but invalid or incomplete, publication fails.
+The Actions summary explains when Play was skipped; no Play account access or key is needed
+until you are ready to enable AAB builds.
+The workflow verifies both the merged manifest and the AAB's upload certificate before upload.
+
+In your existing Play Console account, create Baby Log, confirm the package ID on the first
+bundle upload, configure Play App Signing, and upload the AAB under **Testing → Internal testing**.
+Add tester email addresses and share the opt-in link after rolling out the internal test.
+This workflow prepares the downloadable AAB; it does not publish to Play Console automatically.
+
+The current alarm/full-screen permissions and `specialUse` foreground sync service still require
+review and applicable Play Console declarations. Store listing, privacy policy, Data safety and
+other app-content setup are separate from building the bundle; generating an AAB does not confirm
+Google Play approval.
+
+**Existing GitHub installations:** Play App Signing uses a different signing certificate from the
+current debug-signed APKs. Despite the same package ID, Play cannot simply replace those copies.
+Export a JSON backup before uninstalling the GitHub copy, then install from Play and restore the
+backup. Do not uninstall without a backup. The two channels cannot be installed side by side.
+Once enrolled, future Play installations should update through Play; GitHub installations continue
+using the existing GitHub key. Keep Play's version codes increasing when uploading subsequent bundles.
 
 ## How syncing works
 

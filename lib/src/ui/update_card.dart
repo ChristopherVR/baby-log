@@ -7,7 +7,7 @@ import '../updates.dart';
 
 Future<void> showAppUpdates(BuildContext context, {AppUpdates? updates}) {
   final service = updates ?? AppUpdates.instance;
-  service.check(manual: true);
+  if (!service.usesPlayStore) service.check(manual: true);
   return showDialog<void>(
     context: context,
     builder: (ctx) => AlertDialog(
@@ -33,6 +33,27 @@ class UpdateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final updates = this.updates ?? AppUpdates.instance;
+    if (updates.usesPlayStore) {
+      return ListenableBuilder(
+        listenable: updates,
+        builder: (context, _) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const LText(
+              'Updates for this version are provided by Google Play.',
+            ),
+            if (updates.message != null) LText(updates.message!),
+            const SizedBox(height: 8),
+            FilledButton.icon(
+              onPressed: updates.openStore,
+              icon: const Icon(Icons.shop_outlined),
+              label: const LText('Open Google Play'),
+            ),
+          ],
+        ),
+      );
+    }
     return ListenableBuilder(
       listenable: updates,
       builder: (context, _) {
