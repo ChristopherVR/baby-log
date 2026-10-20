@@ -265,9 +265,15 @@ class _ShellState extends State<Shell> {
         toolbarHeight: 64,
         title: LText(
           widget.profile.isEmpty ? title : '$title [${widget.profile}]',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
         actions: [
-          const SyncChip(),
+          SyncChip(
+            compact:
+                MediaQuery.sizeOf(context).width <
+                380 * MediaQuery.textScalerOf(context).scale(1),
+          ),
           LIconButton(
             tooltip: 'Settings',
             icon: const Icon(Icons.settings_outlined),

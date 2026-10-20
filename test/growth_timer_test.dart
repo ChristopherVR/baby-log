@@ -271,51 +271,59 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('feeding controls pause, resume and save without overflow', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(320, 780);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    app.dispose();
-    app = (await tester.runAsync(
-      () => AppState.loadForTesting(
-        File('${dir.path}/timer-ui.json'),
-        persist: false,
-      ),
-    ))!;
-    app.setupDone = true;
-    app.startFeedTimer(FeedSide.left);
-    await tester.pumpWidget(
-      BabyApp(state: app, now: () => DateTime(2026, 10, 20, 12)),
+  for (final (width, textScale) in [(320.0, 1.0), (280.0, 1.0), (320.0, 1.5)]) {
+    testWidgets(
+      'feeding controls pause, resume and save at $width with text scale $textScale',
+      (tester) async {
+        tester.view.physicalSize = Size(width, 780);
+        tester.view.devicePixelRatio = 1;
+        tester.platformDispatcher.textScaleFactorTestValue = textScale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        addTearDown(tester.view.reset);
+        app.dispose();
+        app = (await tester.runAsync(
+          () => AppState.loadForTesting(
+            File('${dir.path}/timer-ui.json'),
+            persist: false,
+          ),
+        ))!;
+        app.setupDone = true;
+        app.startFeedTimer(FeedSide.left);
+        await tester.pumpWidget(
+          BabyApp(state: app, now: () => DateTime(2026, 10, 20, 12)),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        final homeScroll = find
+            .descendant(
+              of: find.byType(HomePage),
+              matching: find.byType(Scrollable),
+            )
+            .first;
+        await tester.scrollUntilVisible(
+          find.text('Pause to burp'),
+          200,
+          scrollable: homeScroll,
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Pause to burp'));
+        await tester.pump();
+        expect(app.timerPaused, isTrue);
+        expect(tester.takeException(), isNull);
+        await tester.tap(find.text('Resume feeding'));
+        await tester.pump();
+        expect(app.timerPaused, isFalse);
+        expect(tester.takeException(), isNull);
+        await tester.ensureVisible(find.text('Stop & save'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Stop & save'));
+        await tester.pump();
+        expect(app.lastFeed, isNotNull);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      },
     );
-    await tester.pumpAndSettle();
-    final homeScroll = find
-        .descendant(
-          of: find.byType(HomePage),
-          matching: find.byType(Scrollable),
-        )
-        .first;
-    await tester.scrollUntilVisible(
-      find.text('Pause to burp'),
-      200,
-      scrollable: homeScroll,
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Pause to burp'));
-    await tester.pump();
-    expect(app.timerPaused, isTrue);
-    await tester.tap(find.text('Resume feeding'));
-    await tester.pump();
-    expect(app.timerPaused, isFalse);
-    await tester.ensureVisible(find.text('Stop & save'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Stop & save'));
-    await tester.pump();
-    expect(app.lastFeed, isNotNull);
-    expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox());
-  });
+  }
 
   testWidgets('charts show sparse measurements and equal dates in dark mode', (
     tester,

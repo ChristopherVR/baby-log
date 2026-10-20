@@ -32,7 +32,8 @@ String appearanceLabel(String a) => switch (a) {
 
 /// Small status pill in the app bar: shows whether the partner's device is in sync.
 class SyncChip extends StatelessWidget {
-  const SyncChip({super.key});
+  const SyncChip({super.key, this.compact = false});
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -46,6 +47,17 @@ class SyncChip extends StatelessWidget {
         : app.syncHasError
         ? (Baby.warn, 'Not synced')
         : (Baby.ok, app.lastSync == null ? 'Paired' : 'Synced');
+    if (compact) {
+      return LIconButton(
+        tooltip: label,
+        icon: Icon(
+          app.peers.isEmpty ? Icons.people_alt_rounded : Icons.circle,
+          color: color,
+          size: app.peers.isEmpty ? 22 : 12,
+        ),
+        onPressed: () => openSettings(context),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.only(right: 4),
       child: ActionChip(

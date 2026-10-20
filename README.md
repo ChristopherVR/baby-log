@@ -183,12 +183,19 @@ using the existing GitHub key. Keep Play's version codes increasing when uploadi
   choose **Still sleeping** to continue tracking while logging the feed or change.
 - Naps belong to the selected baby, survive restarts, and sync like other care entries.
   Tap a sleep entry in History to correct its times or delete it.
-- In **History → Charts**, choose 7, 14 or 30 days. Daily charts show wee and poo counts and
-  sleep hours; three hourly charts show feeding, poo and wee frequencies across those days.
-  Mixed nappies count in both nappy charts. Overnight sleep is split at midnight, and ongoing
-  naps contribute up to the current time. Tap bars for values and swipe to see the whole range.
-- Chart ranges use local calendar days and all logs for the selected baby. Search, type filters
-  and grouping apply to the Log view. Sleep is included in CSV exports and JSON backups.
+- **History** is the activity log, with search, entry-type filters and grouping. Filter to today,
+  yesterday, a chosen day or date range, then optionally one hour of each day. CSV export uses
+  the entries shown. Use the day arrows to move between individual dates.
+- The **Charts** button opens a separate screen with its own date and hour filters. Switch
+  between daily totals and hourly patterns. Daily charts include feeds, wees, poos, sleep,
+  recorded feeding minutes, bottle volume and pills; hourly charts show feeds, wees, poos and
+  sleep duration. Each chart shows totals, daily averages, peaks and exact bar values.
+- Mixed nappies count as both wee and poo. Overnight sleep is split across hours and days;
+  ongoing naps contribute up to now. Ranges use local calendar days. Today is incomplete,
+  and empty days count as zero. Tap a bar for details; swipe to see the whole range.
+- Next-day estimates average completed days in the selected range, including empty days,
+  and exclude today. They appear with logs on at least three completed days and all hours
+  selected. Missing logs affect estimates. Sleep is included in CSV exports and JSON backups.
 
 ## Languages
 

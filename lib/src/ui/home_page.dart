@@ -83,25 +83,50 @@ class _HomePageState extends State<HomePage> {
           ),
           Card(
             color: Baby.pillSoft,
-            child: ListTile(
-              leading: Glyphs.sleep(28, Baby.pill),
-              title: LText(app.activeSleep == null ? 'Sleep' : 'Sleeping'),
-              subtitle: LText(
-                app.activeSleep == null
-                    ? 'Put down for a nap'
-                    : '${hm(app.activeSleep!.time)} · ${duration(DateTime.now().difference(app.activeSleep!.time))}',
-              ),
-              trailing: FilledButton(
-                onPressed: () {
-                  final nap = app.activeSleep;
-                  if (nap == null) {
-                    showSheet(context, const SleepSheet());
-                  } else {
-                    app.endSleep(nap);
-                  }
-                },
-                child: LText(app.activeSleep == null ? 'Start nap' : 'End nap'),
-              ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final stacked =
+                    constraints.maxWidth <
+                    360 * MediaQuery.textScalerOf(context).scale(1);
+                final action = FilledButton(
+                  onPressed: () {
+                    final nap = app.activeSleep;
+                    if (nap == null) {
+                      showSheet(context, const SleepSheet());
+                    } else {
+                      app.endSleep(nap);
+                    }
+                  },
+                  child: LText(
+                    app.activeSleep == null ? 'Start nap' : 'End nap',
+                  ),
+                );
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ListTile(
+                      leading: Glyphs.sleep(28, Baby.pill),
+                      title: LText(
+                        app.activeSleep == null ? 'Sleep' : 'Sleeping',
+                      ),
+                      subtitle: LText(
+                        app.activeSleep == null
+                            ? 'Put down for a nap'
+                            : '${hm(app.activeSleep!.time)} · ${duration(DateTime.now().difference(app.activeSleep!.time))}',
+                      ),
+                      trailing: stacked ? null : action,
+                    ),
+                    if (stacked)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: action,
+                        ),
+                      ),
+                  ],
+                );
+              },
             ),
           ),
           const SizedBox(height: 14),

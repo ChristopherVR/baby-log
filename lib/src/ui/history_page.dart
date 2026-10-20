@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models.dart';
+import '../history_period.dart';
 import 'common.dart';
 import 'history_charts.dart';
+import 'history_period_controls.dart';
 import 'data_transfer.dart';
 import 'sheets.dart';
 import 'theme.dart';
@@ -47,7 +49,7 @@ class _HistoryPageState extends State<HistoryPage> {
   final _search = TextEditingController();
   EntryType? filter;
   Grouping grouping = Grouping.day;
-  bool charts = false;
+  HistoryPeriod period = const HistoryPeriod();
 
   @override
   void dispose() {
@@ -63,7 +65,8 @@ class _HistoryPageState extends State<HistoryPage> {
         .toList();
     return [
       for (final e in all)
-        if ((filter == null || e.type == filter) &&
+        if (period.contains(e.time) &&
+            (filter == null || e.type == filter) &&
             (terms.isEmpty ||
                 terms.every(
                   '${_searchText(e)} ${dayLabel(e.time).toLowerCase()}'
@@ -135,22 +138,13 @@ class _HistoryPageState extends State<HistoryPage> {
     final app = AppScope.of(context);
     final multiDay = grouping != Grouping.day;
 
-    if (charts) {
-      return PullToSync(
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-          children: [_viewPicker(), const HistoryCharts()],
-        ),
-      );
-    }
-
     // Flattened rows so the list is built lazily: a header, then entries.
     // Rebuilt only when the entries, filter, grouping, search or day change.
     final key = (
       app.entries,
       filter,
       grouping,
+      period,
       _search.text,
       dayLabel(DateTime.now()),
     );
@@ -241,32 +235,38 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  Widget _viewPicker() => Padding(
-    padding: const EdgeInsets.only(bottom: 16),
-    child: SegmentedButton<bool>(
-      segments: const [
-        ButtonSegment(
-          value: false,
-          icon: Icon(Icons.history_rounded),
-          label: LText('Log'),
-        ),
-        ButtonSegment(
-          value: true,
-          icon: Icon(Icons.bar_chart_rounded),
-          label: LText('Charts'),
-        ),
-      ],
-      selected: {charts},
-      onSelectionChanged: (v) => setState(() => charts = v.single),
-    ),
-  );
-
   Widget _controls(BuildContext context, List<Entry> shown) {
     final searching = _search.text.isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _viewPicker(),
+        Row(
+          children: [
+            const Expanded(
+              child: LText(
+                'Activity log',
+                style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800),
+              ),
+            ),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const ChartsPage()),
+              ),
+              icon: const Icon(Icons.bar_chart_rounded),
+              label: const LText('Charts'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        const LText(
+          'Everything logged for this baby, newest first. Time filters use entry start times.',
+        ),
+        const SizedBox(height: 12),
+        HistoryPeriodControls(
+          period: period,
+          allowAll: true,
+          onChanged: (value) => setState(() => period = value),
+        ),
         Row(
           children: [
             Expanded(
@@ -397,12 +397,12 @@ class _HistoryPageState extends State<HistoryPage> {
             child: LText(
               searching
                   ? 'Nothing matches "${_search.text}"'
-                  : 'Nothing logged yet',
+                  : 'No entries match these filters',
               textAlign: TextAlign.center,
               style: TextStyle(color: Baby.muted, fontWeight: FontWeight.w600),
             ),
           )
-        else if (searching)
+        else
           Padding(
             padding: const EdgeInsets.only(top: 10),
             child: LText(

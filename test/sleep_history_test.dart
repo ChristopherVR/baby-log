@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:baby_app/src/history_stats.dart';
+import 'package:baby_app/src/history_period.dart';
 import 'package:baby_app/src/models.dart';
 import 'package:baby_app/src/store.dart';
 import 'package:baby_app/src/ui/common.dart';
@@ -11,6 +12,7 @@ import 'package:baby_app/src/ui/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/intl.dart';
 
 void main() {
   late Directory dir;
@@ -225,7 +227,7 @@ void main() {
   });
 
   testWidgets(
-    'all six charts render on a narrow screen and range changes work',
+    'separate charts screen renders daily and hourly views on a narrow screen',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(360, 800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -234,14 +236,35 @@ void main() {
       await tester.tap(find.text('Charts'));
       await tester.pumpAndSettle();
       expect(find.text('Wees per day'), findsOneWidget);
+      expect(find.byType(EntryTile), findsNothing);
+      final firstDate = HistoryPeriod.recent(DateTime.now(), 7).start!;
+      final firstBar = find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics &&
+            widget.properties.label ==
+                'Feeds per day, ${DateFormat('d MMM').format(firstDate)}: 0',
+      );
+      await tester.ensureVisible(firstBar);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.ancestor(of: firstBar, matching: find.byType(InkWell)).first,
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text('${DateFormat('EEE d MMM yyyy').format(firstDate)} · 0'),
+        findsOneWidget,
+      );
+      await tester.ensureVisible(find.text('30 days'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('30 days'));
       await tester.pumpAndSettle();
       for (final title in [
         'Poos per day',
         'Sleep hours per day',
-        'Feeds by hour',
-        'Poos by hour',
-        'Wees by hour',
+        'Feed minutes per day',
+        'Bottle ml per day',
+        'Pills per day',
+        'Next-day estimate',
       ]) {
         await tester.scrollUntilVisible(
           find.text(title),
@@ -252,6 +275,145 @@ void main() {
         expect(find.text(title), findsOneWidget);
         expect(tester.takeException(), isNull);
       }
+      await tester.scrollUntilVisible(
+        find.text('By hour'),
+        -400,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('By hour'));
+      await tester.pumpAndSettle();
+      for (final title in [
+        'Feeds by hour',
+        'Wees by hour',
+        'Poos by hour',
+        'Sleep hours by hour',
+      ]) {
+        await tester.scrollUntilVisible(
+          find.text(title),
+          250,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      }
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.text('Activity log'), findsOneWidget);
     },
   );
+
+  test('explicit day and hour clip counts and sleep at both boundaries', () {
+    final stats = HistoryStats(
+      [
+        Entry(
+          type: EntryType.sleep,
+          time: DateTime(2026, 10, 16, 23),
+          endTime: DateTime(2026, 10, 18, 2),
+        ),
+        Entry(
+          type: EntryType.feed,
+          time: DateTime(2026, 10, 17, 9),
+          durationMin: 12,
+          amountMl: 40,
+        ),
+        Entry(
+          type: EntryType.feed,
+          time: DateTime(2026, 10, 17, 10),
+          amountMl: 100,
+        ),
+        Entry(
+          type: EntryType.nappy,
+          time: DateTime(2026, 10, 17, 9, 59),
+          nappy: NappyKind.both,
+        ),
+        Entry(type: EntryType.pill, time: DateTime(2026, 10, 17, 9, 30)),
+      ],
+      now: DateTime(2026, 10, 19, 12),
+      days: 7,
+      period: HistoryPeriod(
+        start: DateTime(2026, 10, 17),
+        end: DateTime(2026, 10, 17),
+        hour: 9,
+      ),
+    );
+    expect(stats.feeds, [1]);
+    expect(stats.feedMinutes, [12]);
+    expect(stats.bottleMl, [40]);
+    expect(stats.pills, [1]);
+    expect(stats.pee, [1]);
+    expect(stats.poo, [1]);
+    expect(stats.sleepHours, [1.0]);
+    expect(stats.sleepByHour[9], 1);
+    expect(stats.sleepByHour[10], 0);
+  });
+
+  test(
+    'estimates exclude today, include empty days and require logged days',
+    () {
+      final now = DateTime(2026, 10, 21, 12);
+      final entries = [
+        for (final day in [17, 18, 19, 21, 21, 21])
+          Entry(type: EntryType.feed, time: DateTime(2026, 10, day, 10)),
+      ];
+      final stats = HistoryStats(entries, now: now, days: 5);
+      expect(stats.canEstimate, isTrue);
+      expect(stats.completedIndexes.length, 4);
+      expect(stats.estimate(stats.feeds), 0.75);
+      expect(HistoryStats(entries, now: now, days: 3).canEstimate, isFalse);
+    },
+  );
+
+  testWidgets('log day and hour filters combine with type', (tester) async {
+    final today = HistoryPeriod.day(DateTime.now());
+    final yesterday = DateTime(today.year, today.month, today.day - 1);
+    app.addEntry(
+      Entry(
+        type: EntryType.feed,
+        time: yesterday.add(const Duration(hours: 9)),
+      ),
+    );
+    app.addEntry(
+      Entry(
+        type: EntryType.feed,
+        time: yesterday.add(const Duration(hours: 10)),
+      ),
+    );
+    app.addEntry(
+      Entry(
+        type: EntryType.nappy,
+        time: yesterday.add(const Duration(hours: 9)),
+      ),
+    );
+    await open(tester, const HistoryPage());
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Yesterday'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Previous day'));
+    await tester.pumpAndSettle();
+    expect(find.text('No entries match these filters'), findsOneWidget);
+    await tester.tap(find.byTooltip('Next day'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButtonFormField<int>));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('09:00 – 09:59').last,
+      150,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('09:00 – 09:59').last);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.widgetWithText(ChoiceChip, 'Feeds'),
+      150,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Feeds'));
+    await tester.pumpAndSettle();
+    expect(find.byType(EntryTile), findsOneWidget);
+    final tile = tester.widget<EntryTile>(find.byType(EntryTile));
+    expect(tile.entry.time.hour, 9);
+    expect(tile.entry.type, EntryType.feed);
+    expect(tester.takeException(), isNull);
+  });
 }
