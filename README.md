@@ -61,7 +61,7 @@ Or with the phone plugged in (USB debugging on): `flutter run`.
 ## Baby profiles and routines
 
 - Use the baby selector above the tabs to switch profiles. The person-plus button adds a baby;
-  the pencil renames the selected baby. Existing logs stay with the original baby automatically.
+  the pencil edits their name, date of birth and profile photo. Existing logs stay with the original baby automatically.
 - Feeds, nappies and routines belong to the selected baby. Feed reminder settings are separate
   for each baby on each phone. Pills continue to track the parent's medication across profiles.
 - Open **Routines** to set up bath time, bedtime, tummy time or a custom activity. Choose a time,
@@ -76,6 +76,28 @@ Or with the phone plugged in (USB debugging on): `flutter run`.
   or stopped before switching babies, so the feed stays with the right baby.
 - Profiles and routines sync by Wi-Fi or QR and are included in JSON backups, including deletions.
   Install the same feature version on both phones to share profiles, routines and completion history.
+
+## Growth journal and feeding breaks
+
+- **Growth → Add a moment** saves a dated photo, weight in kg, height in cm and/or a memory.
+  Add one each month or whenever you like. Tap a moment to edit or delete it; Undo restores it.
+- The journal groups moments by month, shows age from the birthday, compares the first and latest
+  photos, and charts recorded weight and height using actual dates. These are observed changes,
+  not predicted growth or medical percentiles. Missing measurements are left out of their chart.
+- Profile photos and journal photos are picked from JPG, PNG or WebP files (up to 20 MB), resized
+  to at most 720 pixels and stored with the records. They survive restarts, JSON backup/restore
+  and Wi-Fi sync. Photo-heavy journals can exceed the QR transfer limit; use Wi-Fi or a JSON backup.
+  Use version 1.5 on both phones when syncing the new fields.
+- **Feed → Start timer** begins active feeding time. **Pause to burp** freezes the count and
+  cancels reminders; **Resume feeding** continues from the same count. **Stop & save** records
+  active time (rounded to minutes), excluding every break. Cancel asks before discarding the feed.
+  Both running and paused timers survive app restarts and keep the original baby selected.
+- **Every 5 minutes** enables/disables a gentle reminder at each five minutes of active feeding.
+  After pausing at 3 minutes, the next reminder is 2 minutes after resuming. Android schedules
+  these as visible timer alarms with a single notification chime, including with the screen off;
+  pause, stop and disabling reminders cancel the schedule. Tapping the reminder opens the app.
+  Android notification and exact-alarm permissions must be enabled. A system next-alarm indicator
+  may be shown while the feeding timer runs. Windows reminders work while the app is open.
 
 ## Sleep and history charts
 
@@ -155,7 +177,7 @@ pass does GitHub Actions build a release APK, upload an artifact and publish it 
 
 `pubspec.yaml` is the version baseline. CI advances the patch version and Android build code for each
 workflow run, updating the build checkout without adding bot commits to `main`. With baseline
-`1.4.0+7`, the first push releases `1.4.0+8`, the second `1.4.1+9`, and so on. Failed runs may leave
+`1.5.0+7`, the first push releases `1.5.0+8`, the second `1.5.1+9`, and so on. Failed runs may leave
 gaps; retrying a run keeps its version. Update the baseline to start a new minor or major series.
 
 The `ANDROID_DEBUG_KEYSTORE` Actions secret holds the existing signing key as base64, so automated

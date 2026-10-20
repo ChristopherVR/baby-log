@@ -15,6 +15,7 @@ import 'src/ui/alarm_page.dart';
 import 'src/ui/common.dart';
 import 'src/ui/history_page.dart';
 import 'src/ui/home_page.dart';
+import 'src/ui/growth_page.dart';
 import 'src/ui/pills_page.dart';
 import 'src/ui/routines_page.dart';
 import 'src/ui/settings_page.dart';
@@ -256,7 +257,8 @@ class _ShellState extends State<Shell> {
       0 => app.babyName.isEmpty ? 'Today' : '${app.babyName}\'s day',
       1 => 'History',
       2 => 'Pills',
-      _ => 'Routines',
+      3 => 'Routines',
+      _ => 'Growth',
     };
     return Scaffold(
       appBar: AppBar(
@@ -289,6 +291,7 @@ class _ShellState extends State<Shell> {
                   const HistoryPage(),
                   const PillsPage(),
                   const RoutinesPage(),
+                  const GrowthPage(),
                 ],
               ),
             ),
@@ -316,6 +319,11 @@ class _ShellState extends State<Shell> {
           NavigationDestination(
             icon: Icon(Icons.event_repeat_rounded),
             label: tr('Routines'),
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.photo_album_outlined),
+            selectedIcon: Icon(Icons.photo_album_rounded),
+            label: tr('Growth'),
           ),
         ],
       ),

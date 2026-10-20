@@ -253,7 +253,7 @@ class _TimerCardState extends State<_TimerCard> {
   @override
   Widget build(BuildContext context) {
     final app = widget.app;
-    final elapsed = DateTime.now().difference(app.timerStart!);
+    final elapsed = app.feedElapsed();
     final mm = elapsed.inMinutes.toString().padLeft(2, '0');
     final ss = (elapsed.inSeconds % 60).toString().padLeft(2, '0');
     return Card(
@@ -264,7 +264,9 @@ class _TimerCardState extends State<_TimerCard> {
         child: Column(
           children: [
             LText(
-              'Feeding since ${hm(app.timerStart!)}',
+              app.timerPaused
+                  ? 'A little burping break'
+                  : 'Feeding since ${hm(app.timerStart!)}',
               style: TextStyle(fontWeight: FontWeight.w700, color: Baby.feed),
             ),
             LText(
@@ -274,6 +276,12 @@ class _TimerCardState extends State<_TimerCard> {
                 fontWeight: FontWeight.w800,
                 fontFeatures: [FontFeature.tabularFigures()],
               ),
+            ),
+            LText(
+              app.timerPaused
+                  ? 'Timer paused · take your time'
+                  : 'Active feeding time',
+              style: TextStyle(color: Baby.feed),
             ),
             const SizedBox(height: 8),
             Row(
@@ -296,13 +304,62 @@ class _TimerCardState extends State<_TimerCard> {
               ],
             ),
             const SizedBox(height: 12),
-            Row(
+            FilledButton.tonalIcon(
+              onPressed: () => app.timerPaused
+                  ? app.resumeFeedTimer()
+                  : app.pauseFeedTimer(),
+              icon: Icon(
+                app.timerPaused
+                    ? Icons.play_arrow_rounded
+                    : Icons.pause_rounded,
+              ),
+              label: LText(
+                app.timerPaused ? 'Resume feeding' : 'Pause to burp',
+              ),
+            ),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const LText('Every 5 minutes'),
+              subtitle: const LText('Remind me during active feeding'),
+              value: app.timerReminders,
+              onChanged: app.setTimerReminders,
+            ),
+            ValueListenableBuilder<String?>(
+              valueListenable: app.reminders.timerProblem,
+              builder: (_, problem, _) => problem == null
+                  ? const SizedBox.shrink()
+                  : LText(problem, style: TextStyle(color: Baby.error)),
+            ),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              alignment: WrapAlignment.end,
               children: [
                 TextButton(
-                  onPressed: () => app.stopFeedTimer(save: false),
+                  onPressed: () async {
+                    final discard = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const LText('Discard this feed?'),
+                        content: const LText(
+                          'The timer will stop without saving a feed.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const LText('Keep feeding'),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const LText('Discard'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (discard == true) app.stopFeedTimer(save: false);
+                  },
                   child: const LText('Cancel'),
                 ),
-                const Spacer(),
                 FilledButton.icon(
                   style: FilledButton.styleFrom(
                     backgroundColor: Baby.feed,

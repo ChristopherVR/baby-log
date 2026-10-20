@@ -222,6 +222,7 @@ class PeerPage extends StatelessWidget {
                         ('baby', 'Babies', Glyphs.baby, Baby.primary),
                         ('routine', 'Routines', Glyphs.alarm, Baby.primary),
                         ('completion', 'Routines done', Glyphs.heart, Baby.ok),
+                        ('growth', 'Growth entries', Glyphs.baby, Baby.primary),
                       ])
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 6),
@@ -452,6 +453,7 @@ class PeerPage extends StatelessWidget {
       ('baby', 'baby profile', 'baby profiles'),
       ('routine', 'routine', 'routines'),
       ('completion', 'routine completion', 'routine completions'),
+      ('growth', 'growth entry', 'growth entries'),
     ])
       if ((m[k] ?? 0) > 0) '${m[k]} ${tr(m[k] == 1 ? one : many)}',
   ].join(', ');

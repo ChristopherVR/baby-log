@@ -89,6 +89,8 @@ class BabyProfile implements Syncable {
   @override
   final String id;
   final String name;
+  final DateTime? dateOfBirth;
+  final String? photo;
   @override
   final DateTime updatedAt;
   @override
@@ -97,6 +99,8 @@ class BabyProfile implements Syncable {
   BabyProfile({
     String? id,
     required this.name,
+    this.dateOfBirth,
+    this.photo,
     DateTime? updatedAt,
     this.deleted = false,
   }) : id = id ?? newId(),
@@ -106,6 +110,10 @@ class BabyProfile implements Syncable {
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
+    'dateOfBirth': dateOfBirth == null
+        ? null
+        : '${dateOfBirth!.year.toString().padLeft(4, '0')}-${dateOfBirth!.month.toString().padLeft(2, '0')}-${dateOfBirth!.day.toString().padLeft(2, '0')}',
+    'photo': photo,
     'updatedAt': updatedAt.millisecondsSinceEpoch,
     'deleted': deleted,
   };
@@ -115,6 +123,8 @@ class BabyProfile implements Syncable {
     return BabyProfile(
       id: j['id'],
       name: j['name'],
+      dateOfBirth: DateTime.tryParse(j['dateOfBirth'] as String? ?? ''),
+      photo: j['photo'] as String?,
       updatedAt: DateTime.fromMillisecondsSinceEpoch(
         (j['updatedAt'] as num?)?.toInt() ?? 0,
       ),

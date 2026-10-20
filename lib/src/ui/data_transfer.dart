@@ -99,10 +99,11 @@ Future<void> importBackupFile(BuildContext context) async {
                   result.meds +
                   result.babies +
                   result.routines +
-                  result.completions ==
+                  result.completions +
+                  result.growth ==
               0
           ? 'Nothing new in that backup'
-          : 'Imported ${result.entries} entries, ${result.meds} pills, ${result.babies} profiles and ${result.routines} routines and ${result.completions} completions',
+          : 'Imported ${result.entries} entries, ${result.meds} pills, ${result.babies} profiles and ${result.routines} routines and ${result.completions} completions, ${result.growth} growth entries',
     );
   } on FormatException catch (e) {
     if (context.mounted) showMessage(context, e.message);

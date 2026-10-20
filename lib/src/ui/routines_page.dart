@@ -5,6 +5,8 @@ import 'common.dart';
 import 'sheets.dart';
 import 'theme.dart';
 import 'routine_history.dart';
+import 'growth_page.dart';
+import 'baby_photo.dart';
 
 const _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -22,7 +24,7 @@ class BabyPicker extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 0, 12, 8),
       child: Row(
         children: [
-          Icon(Icons.child_care_rounded, color: Baby.primary),
+          BabyPhoto(photo: app.activeBaby.photo, size: 36),
           const SizedBox(width: 12),
           Expanded(
             child: DropdownButtonHideUnderline(
@@ -51,9 +53,9 @@ class BabyPicker extends StatelessWidget {
             ),
           ),
           LIconButton(
-            tooltip: 'Rename baby',
+            tooltip: 'Edit profile',
             icon: const Icon(Icons.edit_outlined),
-            onPressed: () => _babyName(context, rename: true),
+            onPressed: () => editBabyProfile(context),
           ),
           LIconButton(
             tooltip: 'Add baby',

@@ -29,6 +29,7 @@ object Background {
         val app = context.applicationContext
         val engine = FlutterEngine(app)
         AppUpdates.register(app, engine)
+        FeedingTimer.register(app, engine)
         MethodChannel(engine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "start" -> {

@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
@@ -97,6 +99,83 @@ class Reminders {
   final _plugin = FlutterLocalNotificationsPlugin();
   bool _ready = false;
   Future<void> _queue = Future.value();
+
+  static const _timerChannel = MethodChannel('babylog/feeding_timer');
+  final timerProblem = ValueNotifier<String?>(null);
+  String? _timerPlan;
+  Future<void> _timerQueue = Future.value();
+  Timer? _desktopTimer;
+
+  /// Android owns the recurring schedule, even when the Dart process is gone.
+  /// Desktop notifications are for testing and run while the app is open.
+  void scheduleFeedingTimer({
+    required DateTime? origin,
+    required String babyName,
+  }) {
+    if (!_ready) return;
+    final plan =
+        '${origin?.millisecondsSinceEpoch}:$babyName:${AppLanguage.code}';
+    if (_timerPlan == plan) return;
+    _timerPlan = plan;
+    final title = tr('Feeding check-in');
+    final body = tr(
+      'Another 5 minutes of feeding. Open Baby Log to pause or finish.',
+    );
+    _timerQueue = _timerQueue
+        .then((_) async {
+          _desktopTimer?.cancel();
+          if (Platform.isAndroid) {
+            await _timerChannel.invokeMethod<void>('schedule', {
+              'origin': origin?.millisecondsSinceEpoch,
+              'title': babyName.isEmpty ? title : '$babyName · $title',
+              'body': body,
+            });
+          } else {
+            await _plugin.cancel(id: 2000000);
+            if (origin != null) {
+              void next() {
+                final now = DateTime.now();
+                const interval = Duration(minutes: 5);
+                final elapsed = now.difference(origin).inMilliseconds;
+                final delay =
+                    interval.inMilliseconds - elapsed % interval.inMilliseconds;
+                _desktopTimer = Timer(Duration(milliseconds: delay), () async {
+                  if (_timerPlan != plan) return;
+                  try {
+                    await _plugin.show(
+                      id: 2000000,
+                      title: title,
+                      body: body,
+                      notificationDetails: const NotificationDetails(
+                        windows: WindowsNotificationDetails(),
+                      ),
+                    );
+                  } catch (e) {
+                    timerProblem.value = tr(
+                      'Feeding reminders are unavailable. Check notification permissions.',
+                    );
+                  }
+                  if (_timerPlan == plan) next();
+                });
+              }
+
+              next();
+            }
+          }
+          timerProblem.value = null;
+        })
+        .catchError((Object error) {
+          _timerPlan = null;
+          timerProblem.value = tr(
+            'Feeding reminders are unavailable. Check notification permissions.',
+          );
+          debugPrint('Feeding reminder failed: $error');
+        });
+  }
+
+  void dispose() {
+    _desktopTimer?.cancel();
+  }
 
   static const snoozeAction = 'snooze';
   static const stopAction = 'stop';
@@ -195,6 +274,9 @@ class Reminders {
       }
     } catch (e) {
       debugPrint('Reminders unavailable: $e');
+      timerProblem.value = tr(
+        'Feeding reminders are unavailable. Check notification permissions.',
+      );
     }
   }
 

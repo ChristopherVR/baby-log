@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'background.dart';
 import 'models.dart';
+import 'growth.dart';
 import 'routines.dart';
 import 'localization.dart';
 import 'notifications.dart';
@@ -63,6 +64,7 @@ class AppState extends ChangeNotifier {
   final Map<String, Entry> _entries = {};
   final Map<String, Medication> _meds = {};
   final Map<String, BabyProfile> _babies = {};
+  final Map<String, GrowthEntry> _growth = {};
   final Map<String, Routine> _routines = {};
   final Map<String, RoutineCompletion> _routineCompletions = {};
   String caregiverName = '';
@@ -133,6 +135,66 @@ class AppState extends ChangeNotifier {
     _babies[baby.id] = baby;
     _touch(baby.id);
     if (timerStart == null) activeBabyId = baby.id;
+    _changed();
+  }
+
+  BabyProfile get activeBaby => _babies[activeBabyId]!;
+
+  List<GrowthEntry> get growthEntries =>
+      _growth.values
+          .where((e) => !e.deleted && e.babyId == activeBabyId)
+          .toList()
+        ..sort((a, b) {
+          final day = b.date.compareTo(a.date);
+          return day != 0 ? day : b.updatedAt.compareTo(a.updatedAt);
+        });
+
+  bool saveGrowth(GrowthEntry entry) {
+    final baby = _babies[entry.babyId];
+    final now = DateTime.now();
+    if (baby == null ||
+        baby.deleted ||
+        entry.date.isAfter(DateTime(now.year, now.month, now.day)) ||
+        (baby.dateOfBirth != null && entry.date.isBefore(baby.dateOfBirth!)) ||
+        !validMeasurement(entry.weightKg) ||
+        !validMeasurement(entry.heightCm) ||
+        (entry.weightKg == null &&
+            entry.heightCm == null &&
+            entry.photo == null &&
+            entry.note.trim().isEmpty)) {
+      return false;
+    }
+    _growth[entry.id] = entry.copyWith(updatedAt: _editTime(_growth[entry.id]));
+    _touch(entry.id);
+    _changed();
+    return true;
+  }
+
+  void setGrowthDeleted(GrowthEntry entry, bool deleted) {
+    final current = _growth[entry.id];
+    if (current == null) return;
+    _growth[entry.id] = current.copyWith(
+      updatedAt: _editTime(current),
+      deleted: deleted,
+    );
+    _touch(entry.id);
+    _changed();
+  }
+
+  void saveBabyProfile({
+    required String name,
+    DateTime? dateOfBirth,
+    String? photo,
+  }) {
+    final existing = activeBaby;
+    _babies[existing.id] = BabyProfile(
+      id: existing.id,
+      name: name.trim(),
+      dateOfBirth: dateOfBirth,
+      photo: photo,
+      updatedAt: _editTime(existing),
+    );
+    _touch(existing.id);
     _changed();
   }
 
@@ -258,6 +320,29 @@ class AppState extends ChangeNotifier {
   /// Feed timer (local to this device only).
   FeedSide? timerSide;
   DateTime? timerStart;
+  DateTime? timerPausedAt;
+  int timerPausedMilliseconds = 0;
+  bool timerReminders = true;
+  bool get timerPaused => timerStart != null && timerPausedAt != null;
+
+  Duration feedElapsed([DateTime? now]) {
+    if (timerStart == null) return Duration.zero;
+    return Duration(
+      milliseconds: max(
+        0,
+        (timerPausedAt ?? now ?? DateTime.now())
+                .difference(timerStart!)
+                .inMilliseconds -
+            timerPausedMilliseconds,
+      ),
+    );
+  }
+
+  /// The equivalent start with burping breaks removed. Stable between edits.
+  DateTime? get timerActiveOrigin =>
+      timerStart == null || timerPaused || !timerReminders
+      ? null
+      : timerStart!.add(Duration(milliseconds: timerPausedMilliseconds));
 
   bool syncing = false;
   List<String> ips = [];
@@ -319,6 +404,7 @@ class AppState extends ChangeNotifier {
   /// right away and the other phone's changes arrive by themselves.
   void appResumed() {
     startedHeadless = false;
+    _rescheduleReminders();
     _syncPeriodic ??= Timer.periodic(
       const Duration(minutes: 2),
       (_) => syncAll(quiet: true),
@@ -522,6 +608,7 @@ class AppState extends ChangeNotifier {
     'med': _visibleMeds.length,
     'baby': babies.length,
     'routine': _routines.values.where((r) => !r.deleted).length,
+    'growth': _growth.values.where((g) => !g.deleted).length,
     'completion': _routineCompletions.values.where((c) => !c.deleted).length,
   };
 
@@ -617,9 +704,43 @@ class AppState extends ChangeNotifier {
 
   void deleteMed(Medication med) => saveMed(med.copyWith(deleted: true));
 
-  void startFeedTimer(FeedSide side) {
+  void startFeedTimer(FeedSide side, {DateTime? now}) {
+    if (timerStart != null) return;
     timerSide = side;
-    timerStart = DateTime.now();
+    timerStart = now ?? DateTime.now();
+    timerPausedAt = null;
+    timerPausedMilliseconds = 0;
+    if (timerReminders) {
+      unawaited(
+        reminders.requestPermission().then((_) => _rescheduleReminders()),
+      );
+    }
+    _settingsChanged();
+  }
+
+  void pauseFeedTimer({DateTime? now}) {
+    if (timerStart == null || timerPaused) return;
+    timerPausedAt = now ?? DateTime.now();
+    _settingsChanged();
+  }
+
+  void resumeFeedTimer({DateTime? now}) {
+    if (!timerPaused) return;
+    timerPausedMilliseconds += max(
+      0,
+      (now ?? DateTime.now()).difference(timerPausedAt!).inMilliseconds,
+    );
+    timerPausedAt = null;
+    _settingsChanged();
+  }
+
+  void setTimerReminders(bool enabled) {
+    timerReminders = enabled;
+    if (enabled) {
+      unawaited(
+        reminders.requestPermission().then((_) => _rescheduleReminders()),
+      );
+    }
     _settingsChanged();
   }
 
@@ -628,15 +749,15 @@ class AppState extends ChangeNotifier {
     _settingsChanged();
   }
 
-  void stopFeedTimer({bool save = true}) {
+  void stopFeedTimer({bool save = true, DateTime? now}) {
+    final elapsed = feedElapsed(now);
     final side = timerSide, start = timerStart;
     timerSide = null;
     timerStart = null;
+    timerPausedAt = null;
+    timerPausedMilliseconds = 0;
     if (save && side != null && start != null) {
-      final mins = max(
-        1,
-        (DateTime.now().difference(start).inSeconds / 60).round(),
-      );
+      final mins = max(1, (elapsed.inSeconds / 60).round());
       addEntry(
         Entry(type: EntryType.feed, time: start, side: side, durationMin: mins),
       );
@@ -700,6 +821,8 @@ class AppState extends ChangeNotifier {
     final baby = BabyProfile(
       id: activeBabyId,
       name: name.trim(),
+      dateOfBirth: existing?.dateOfBirth,
+      photo: existing?.photo,
       updatedAt: _editTime(existing),
     );
     _babies[baby.id] = baby;
@@ -870,29 +993,35 @@ class AppState extends ChangeNotifier {
     _possibleDuplicates = dups;
   }
 
-  void _rescheduleReminders() => reminders.reschedule(
-    babyFeeds: [
-      for (final baby in babies)
-        if (_feedReminderOn[baby.id] == true)
-          (babyId: baby.id, name: baby.name, at: _feedAtFor(baby.id)),
-    ],
-    routineReminders: [
-      for (final r in _routines.values)
-        if (!r.deleted &&
-            r.enabled &&
-            routineRemindsHere(r) &&
-            _babies[r.babyId]?.deleted == false)
-          (
-            routine: r,
-            babyName: _babies[r.babyId]!.name,
-            completedAt: lastRoutineCompletion(r)?.time,
-          ),
-    ],
-    meds: _visibleMeds.where(remindHere).toList(),
-    feedAlarm: feedAlarm,
-    pillAlarm: pillAlarm,
-    pillReminderOverrides: _pillReminderOverrides,
-  );
+  void _rescheduleReminders() {
+    reminders.scheduleFeedingTimer(
+      origin: timerActiveOrigin,
+      babyName: babyName,
+    );
+    reminders.reschedule(
+      babyFeeds: [
+        for (final baby in babies)
+          if (_feedReminderOn[baby.id] == true)
+            (babyId: baby.id, name: baby.name, at: _feedAtFor(baby.id)),
+      ],
+      routineReminders: [
+        for (final r in _routines.values)
+          if (!r.deleted &&
+              r.enabled &&
+              routineRemindsHere(r) &&
+              _babies[r.babyId]?.deleted == false)
+            (
+              routine: r,
+              babyName: _babies[r.babyId]!.name,
+              completedAt: lastRoutineCompletion(r)?.time,
+            ),
+      ],
+      meds: _visibleMeds.where(remindHere).toList(),
+      feedAlarm: feedAlarm,
+      pillAlarm: pillAlarm,
+      pillReminderOverrides: _pillReminderOverrides,
+    );
+  }
 
   DateTime? _feedAtFor(String babyId) {
     DateTime? last;
@@ -925,10 +1054,15 @@ class AppState extends ChangeNotifier {
     List<Map<String, dynamic>> babies,
     List<Map<String, dynamic>> routines,
     List<Map<String, dynamic>> completions,
+    List<Map<String, dynamic>> growth,
   })
   _changesSince(int since, String to) {
     bool send(String id) => (_seqOf[id] ?? 0) > since && _from[id] != to;
     return (
+      growth: [
+        for (final g in _growth.values)
+          if (since == 0 || send(g.id)) g.toJson(),
+      ],
       babies: [
         for (final b in _babies.values)
           if (since == 0 || send(b.id)) b.toJson(),
@@ -998,6 +1132,7 @@ class AppState extends ChangeNotifier {
       counts['baby'] = 1;
     }
     for (final s in <Syncable>[
+      ...mergeChanged(_growth, _decode(body['growth'], GrowthEntry.fromJson)),
       ...mergeChanged(_babies, _decode(body['babies'], BabyProfile.fromJson)),
       ...mergeChanged(_routines, _decode(body['routines'], Routine.fromJson)),
       ...mergeChanged(
@@ -1008,7 +1143,9 @@ class AppState extends ChangeNotifier {
       ...mergeChanged(_meds, meds),
     ]) {
       _touch(s.id, from: from);
-      final kind = s is RoutineCompletion
+      final kind = s is GrowthEntry
+          ? 'growth'
+          : s is RoutineCompletion
           ? 'completion'
           : s is BabyProfile
           ? 'baby'
@@ -1110,6 +1247,7 @@ class AppState extends ChangeNotifier {
         (body['meds'] as List? ?? []).length +
         (body['babies'] as List? ?? []).length +
         (body['routines'] as List? ?? []).length +
+        (body['growth'] as List? ?? []).length +
         (body['completions'] as List? ?? []).length;
     peer.record(
       SyncRecord(
@@ -1120,7 +1258,8 @@ class AppState extends ChangeNotifier {
             reply.meds.length +
             reply.babies.length +
             reply.routines.length +
-            reply.completions.length,
+            reply.completions.length +
+            reply.growth.length,
         received: received,
         newThere: 0,
         newHere: newHere,
@@ -1145,6 +1284,7 @@ class AppState extends ChangeNotifier {
         'babies': reply.babies,
         'routines': reply.routines,
         'completions': reply.completions,
+        'growth': reply.growth,
       },
     );
   });
@@ -1188,6 +1328,7 @@ class AppState extends ChangeNotifier {
         changes.babies.isEmpty &&
         changes.routines.isEmpty &&
         changes.completions.isEmpty &&
+        changes.growth.isEmpty &&
         info['knowsYou'] == true &&
         theirNow != null &&
         theirNow == p.theirSeq) {
@@ -1211,6 +1352,7 @@ class AppState extends ChangeNotifier {
       'babies': changes.babies,
       'routines': changes.routines,
       'completions': changes.completions,
+      'growth': changes.growth,
     });
     if (res.status == HttpStatus.conflict) {
       p.blockedVersion = theirVersion;
@@ -1236,13 +1378,15 @@ class AppState extends ChangeNotifier {
             changes.meds.length +
             changes.babies.length +
             changes.routines.length +
-            changes.completions.length,
+            changes.completions.length +
+            changes.growth.length,
         received:
             (res.body['entries'] as List? ?? []).length +
             (res.body['meds'] as List? ?? []).length +
             (res.body['babies'] as List? ?? []).length +
             (res.body['routines'] as List? ?? []).length +
-            (res.body['completions'] as List? ?? []).length,
+            (res.body['completions'] as List? ?? []).length +
+            (res.body['growth'] as List? ?? []).length,
         newThere: took,
         newHere: newHere,
         bytes: res.bytes,
@@ -1415,6 +1559,7 @@ class AppState extends ChangeNotifier {
       'babies': changes.babies,
       'routines': changes.routines,
       'completions': changes.completions,
+      'growth': changes.growth,
     });
   }
 
@@ -1461,6 +1606,7 @@ class AppState extends ChangeNotifier {
             (body['meds'] as List? ?? []).length +
             (body['babies'] as List? ?? []).length +
             (body['routines'] as List? ?? []).length +
+            (body['growth'] as List? ?? []).length +
             (body['completions'] as List? ?? []).length,
         newThere: 0,
         newHere: newHere,
@@ -1487,11 +1633,19 @@ class AppState extends ChangeNotifier {
     'babies': [for (final b in _babies.values) b.toJson()],
     'routines': [for (final r in _routines.values) r.toJson()],
     'completions': [for (final c in _routineCompletions.values) c.toJson()],
+    'growth': [for (final g in _growth.values) g.toJson()],
   });
 
   /// Merges a backup into the log (newest copy of each record wins, nothing
   /// is lost). Returns how many entries and pills were new or newer.
-  ({int entries, int meds, int babies, int routines, int completions})
+  ({
+    int entries,
+    int meds,
+    int babies,
+    int routines,
+    int completions,
+    int growth,
+  })
   importBackup(String text) {
     final j = jsonDecode(text);
     if (j is! Map<String, dynamic> ||
@@ -1510,6 +1664,7 @@ class AppState extends ChangeNotifier {
       babies: counts['baby'] ?? 0,
       routines: counts['routine'] ?? 0,
       completions: counts['completion'] ?? 0,
+      growth: counts['growth'] ?? 0,
     );
   }
 
@@ -1557,6 +1712,14 @@ class AppState extends ChangeNotifier {
       timerStart = j['timerStart'] == null
           ? null
           : DateTime.fromMillisecondsSinceEpoch(j['timerStart']);
+      timerPausedAt = j['timerPausedAt'] == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(j['timerPausedAt']);
+      timerPausedMilliseconds = max(
+        0,
+        (j['timerPausedMilliseconds'] as num?)?.toInt() ?? 0,
+      );
+      timerReminders = j['timerReminders'] != false;
       final remind = Map<String, dynamic>.from(j['remindHere'] as Map? ?? {});
       final pillOverrides = Map<String, dynamic>.from(
         j['pillReminderOverrides'] as Map? ?? {},
@@ -1601,6 +1764,7 @@ class AppState extends ChangeNotifier {
       _entries.clear();
       _meds.clear();
       _babies.clear();
+      _growth.clear();
       _routines.clear();
       _routineCompletions.clear();
       activeBabyId = defaultBabyId;
@@ -1639,6 +1803,9 @@ class AppState extends ChangeNotifier {
       'backgroundSync': backgroundSync,
       'timerSide': timerSide?.name,
       'timerStart': timerStart?.millisecondsSinceEpoch,
+      'timerPausedAt': timerPausedAt?.millisecondsSinceEpoch,
+      'timerPausedMilliseconds': timerPausedMilliseconds,
+      'timerReminders': timerReminders,
       'remindHere': _remindHere,
       'pillReminderOverrides': _pillReminderOverrides,
       'entries': [for (final e in _entries.values) e.toJson()],
@@ -1646,6 +1813,7 @@ class AppState extends ChangeNotifier {
       'babies': [for (final b in _babies.values) b.toJson()],
       'routines': [for (final r in _routines.values) r.toJson()],
       'completions': [for (final c in _routineCompletions.values) c.toJson()],
+      'growth': [for (final g in _growth.values) g.toJson()],
       'seq': _seq,
       'seqs': _seqOf,
       'origins': _from,
@@ -1666,6 +1834,7 @@ class AppState extends ChangeNotifier {
     _syncDebounce?.cancel();
     _syncPeriodic?.cancel();
     _metaSave?.cancel();
+    reminders.dispose();
     super.dispose();
   }
 }
