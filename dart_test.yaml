@@ -1,0 +1,6 @@
+# The store asset generator renders icons and screenshots; keep it out of
+# normal runs. Regenerate with:
+#   flutter test --run-skipped --tags store test/store_assets_test.dart
+tags:
+  store:
+    skip: "Store asset generator (flutter test --run-skipped --tags store)"
