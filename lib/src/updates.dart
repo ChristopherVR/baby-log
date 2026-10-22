@@ -7,6 +7,8 @@ import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'distribution.dart';
+
 const releaseRepository = 'https://github.com/ChristopherVR/baby-log';
 
 /// Only stable, versioned APKs published by our release workflow are eligible.
@@ -61,7 +63,7 @@ class AppRelease {
 class AppUpdates extends ChangeNotifier {
   static final instance = AppUpdates();
   static const _channel = MethodChannel('babylog/updates');
-  bool get usesPlayStore => appFlavor == 'play';
+  bool get usesPlayStore => Distribution.play;
   AppRelease? available;
   bool checking = false;
   bool downloading = false;

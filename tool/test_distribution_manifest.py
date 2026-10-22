@@ -3,11 +3,17 @@ import unittest
 from verify_distribution_manifest import PACKAGES, verify_manifest
 
 
-def manifest(*, installer=False, provider=False, package=PACKAGES["play"]):
+GITHUB_PERMISSIONS = ("USE_EXACT_ALARM", "FOREGROUND_SERVICE_SPECIAL_USE")
+
+
+def manifest(*, installer=False, provider=False, package=PACKAGES["play"], permissions=None):
+    if permissions is None:
+        permissions = GITHUB_PERMISSIONS if package == PACKAGES["github"] else ()
+    extra = "".join(f'<uses-permission android:name="android.permission.{name}"/>' for name in permissions)
     permission = '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>' if installer else ""
     component = '<provider android:authorities="com.babyapp.baby_app.updates"/>' if provider else ""
     return f'''<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="{package}">
-        {permission}<application>{component}</application></manifest>'''
+        {permission}{extra}<application>{component}</application></manifest>'''
 
 
 class DistributionManifestTest(unittest.TestCase):
@@ -23,6 +29,20 @@ class DistributionManifestTest(unittest.TestCase):
         for installer, provider in ((False, False), (False, True), (True, False)):
             with self.subTest(installer=installer, provider=provider), self.assertRaises(ValueError):
                 verify_manifest(manifest(installer=installer, provider=provider, package=github), "github")
+
+    def test_play_rejects_restricted_permissions(self):
+        for name in ("USE_EXACT_ALARM", "USE_FULL_SCREEN_INTENT", "FOREGROUND_SERVICE_SPECIAL_USE",
+                     "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                verify_manifest(manifest(permissions=(name,)), "play")
+        verify_manifest(manifest(permissions=("SCHEDULE_EXACT_ALARM", "WAKE_LOCK")), "play")
+
+    def test_github_requires_alarm_and_service_permissions(self):
+        github = PACKAGES["github"]
+        for permissions in ((), ("USE_EXACT_ALARM",), ("FOREGROUND_SERVICE_SPECIAL_USE",)):
+            with self.subTest(permissions=permissions), self.assertRaises(ValueError):
+                verify_manifest(manifest(installer=True, provider=True, package=github, permissions=permissions),
+                                "github")
 
     def test_identity_changes_are_rejected(self):
         with self.assertRaises(ValueError):

@@ -8,6 +8,15 @@ ANDROID = "{http://schemas.android.com/apk/res/android}"
 PACKAGES = {"github": "com.babyapp.baby_app", "play": "io.github.christophervr.nestling"}
 
 
+PLAY_FORBIDDEN = (
+    "USE_EXACT_ALARM",
+    "USE_FULL_SCREEN_INTENT",
+    "FOREGROUND_SERVICE_SPECIAL_USE",
+    "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+)
+GITHUB_REQUIRED = ("USE_EXACT_ALARM", "FOREGROUND_SERVICE_SPECIAL_USE")
+
+
 def verify_manifest(source: str, flavor: str) -> None:
     root = ET.fromstring(source)
     if root.get("package") != PACKAGES[flavor]:
@@ -19,6 +28,15 @@ def verify_manifest(source: str, flavor: str) -> None:
     expected = flavor == "github"
     if installer != expected or update_provider != expected:
         raise ValueError(f"Unexpected installer permission/provider in {flavor} manifest")
+    names = {name.rsplit(".", 1)[-1] for name in permissions if name}
+    if flavor == "play":
+        found = [name for name in PLAY_FORBIDDEN if name in names]
+        if found:
+            raise ValueError(f"Play manifest must not declare {', '.join(found)}")
+    else:
+        missing = [name for name in GITHUB_REQUIRED if name not in names]
+        if missing:
+            raise ValueError(f"GitHub manifest must declare {', '.join(missing)}")
 
 
 def main() -> None:

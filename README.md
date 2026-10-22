@@ -67,6 +67,11 @@ application ID:
 - `play` (`io.github.christophervr.nestling`): has no APK installer, installation permission or update FileProvider. The version
   dialog opens Google Play, which manages updates. Play releases require a separate upload
   key and never fall back to debug signing.
+  To pass Play review without special declarations, it has no background sync service
+  (sync runs while the app is open), no alarm-style reminders (all reminders are normal
+  notifications), and uses the user-granted exact alarm permission (`SCHEDULE_EXACT_ALARM`,
+  "Alarms & reminders") instead of `USE_EXACT_ALARM`. Without that access, reminders fall
+  back to inexact timing.
 
 Build the Play bundle after configuring signing:
 

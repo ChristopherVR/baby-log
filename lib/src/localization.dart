@@ -696,6 +696,10 @@ const afrikaans = <String, String>{
   'Every {count} hours does not fit a day evenly, so the times restart each day at the first dose.': 'Elke {count} uur pas nie eweredig in ’n dag nie; die tye begin dus elke dag weer by die eerste dosis.',
   'The dose times and alarms are worked out for you.':
       'Die dosistye en wekkers word vir jou uitgewerk.',
+  'Get a reminder when the next feed is due, and when it is time for your pills.':
+      'Kry ’n herinnering wanneer die volgende voeding verwag word en wanneer dit tyd vir jou pille is.',
+  'Pill reminders show as normal notifications.':
+      'Pilherinneringe verskyn as gewone kennisgewings.',
   'Get an alarm when the next feed is due, and when it is time for your pills.': 'Kry ’n wekker wanneer die volgende voeding verwag word en wanneer dit tyd vir jou pille is.',
   'Feed reminder is off. Tap to set one':
       'Voedingsherinnering is af. Tik om een in te stel',

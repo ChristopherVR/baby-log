@@ -3,15 +3,21 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import 'distribution.dart';
+
 /// Android only: a foreground service (see SyncService.kt) keeps the app's
 /// Dart engine, and with it the sync server, alive when the app is closed.
 class BackgroundSync {
   static const _channel = MethodChannel('babylog/background');
 
-  static bool get supported => Platform.isAndroid;
+  static bool get supported => Platform.isAndroid && !Distribution.play;
 
   static Future<T?> _call<T>(String method, [Object? args]) async {
-    if (!supported) return null;
+    if (!Platform.isAndroid) return null;
+    // The Play build has no sync service, and no way to start or tune it.
+    if (!supported && const {'start', 'stop', 'isBatteryExempt', 'requestBatteryExempt'}.contains(method)) {
+      return null;
+    }
     try {
       return await _channel.invokeMethod<T>(method, args);
     } catch (e) {
@@ -52,7 +58,7 @@ class DeviceIdentity {
   /// The phone's name from its settings (e.g. "Chris's Galaxy S23"), or its
   /// maker and model; the computer name on desktop. Null if unknown.
   static Future<String?> name() async {
-    if (BackgroundSync.supported) {
+    if (Platform.isAndroid) {
       final name = await BackgroundSync._call<String>('deviceName');
       return name == null || name.trim().isEmpty ? null : name.trim();
     }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../distribution.dart';
 import '../models.dart';
 import '../store.dart';
 import 'common.dart';
@@ -535,25 +536,36 @@ class _MedEditorState extends State<MedEditor> {
                   width: 190,
                   child: DropdownButton<String>(
                     isExpanded: true,
-                    value:
-                        reminderStyles[slot] ??
-                        app.pillReminderOverride(_draft, slot) ??
-                        'default',
+                    value: () {
+                      final style =
+                          reminderStyles[slot] ??
+                          app.pillReminderOverride(_draft, slot) ??
+                          'default';
+                      return Distribution.play && style != 'off'
+                          ? 'default'
+                          : style;
+                    }(),
                     items: [
-                      DropdownMenuItem(
-                        value: 'default',
-                        child: LText(
-                          'Use default (${app.pillAlarm ? 'alarm' : 'notification'})',
+                      if (!Distribution.play) ...[
+                        DropdownMenuItem(
+                          value: 'default',
+                          child: LText(
+                            'Use default (${app.pillAlarm ? 'alarm' : 'notification'})',
+                          ),
                         ),
-                      ),
-                      const DropdownMenuItem(
-                        value: 'alarm',
-                        child: LText('Alarm'),
-                      ),
-                      const DropdownMenuItem(
-                        value: 'notification',
-                        child: LText('Notification'),
-                      ),
+                        const DropdownMenuItem(
+                          value: 'alarm',
+                          child: LText('Alarm'),
+                        ),
+                        const DropdownMenuItem(
+                          value: 'notification',
+                          child: LText('Notification'),
+                        ),
+                      ] else
+                        const DropdownMenuItem(
+                          value: 'default',
+                          child: LText('On'),
+                        ),
                       const DropdownMenuItem(value: 'off', child: LText('Off')),
                     ],
                     onChanged: (value) => setState(

@@ -10,6 +10,7 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
+import 'distribution.dart';
 import 'models.dart';
 import 'routines.dart';
 import 'localization.dart';
@@ -192,11 +193,28 @@ class Reminders {
   /// The reminder that launched the app, if any.
   ReminderInfo? launchedWith;
 
+  /// Exact timing only where Android allows it (always on the GitHub build,
+  /// which holds USE_EXACT_ALARM); the Play build relies on the user-granted
+  /// "Alarms & reminders" access and falls back to inexact otherwise.
+  Future<AndroidScheduleMode> _mode({bool alarm = false}) async {
+    if (!Distribution.play) {
+      return alarm
+          ? AndroidScheduleMode.alarmClock
+          : AndroidScheduleMode.exactAllowWhileIdle;
+    }
+    try {
+      if (await _android?.canScheduleExactNotifications() == true) {
+        return AndroidScheduleMode.exactAllowWhileIdle;
+      }
+    } catch (_) {}
+    return AndroidScheduleMode.inexactAllowWhileIdle;
+  }
+
   static NotificationDetails _details({
     required bool alarm,
     required ReminderInfo info,
   }) => NotificationDetails(
-    android: alarm
+    android: alarm && !Distribution.play
         ? AndroidNotificationDetails(
             'alarms',
             'Alarms',
@@ -293,18 +311,39 @@ class Reminders {
     }
   }
 
+  bool _exactAsked = false;
+
   /// Asks Android for permission to show notifications (once; later calls do nothing).
+  /// The Play build also asks, once per run, for "Alarms & reminders" access.
   Future<void> requestPermission() async {
     try {
       await _android?.requestNotificationsPermission();
     } catch (e) {
       debugPrint('Notification permission request failed: $e');
     }
+    await requestExactPermission();
+  }
+
+  /// Play build only: opens the system "Alarms & reminders" screen if exact
+  /// reminders are not allowed yet. Never throws.
+  Future<void> requestExactPermission() async {
+    if (!Distribution.play || _exactAsked) return;
+    _exactAsked = true;
+    try {
+      final android = _android;
+      if (android == null) return;
+      if (await android.canScheduleExactNotifications() != true) {
+        await android.requestExactAlarmsPermission();
+      }
+    } catch (e) {
+      debugPrint('Exact alarm permission request failed: $e');
+    }
   }
 
   /// Alarms show full screen on the lock screen; newer Android asks the user
   /// for that once (opens its settings page only if not yet allowed).
   Future<void> requestAlarmPermission() async {
+    if (Distribution.play) return requestPermission();
     try {
       await _android?.requestNotificationsPermission();
       await _android?.requestFullScreenIntentPermission();
@@ -347,9 +386,7 @@ class Reminders {
       ),
       notificationDetails: _details(alarm: again.alarm, info: again),
       payload: again.toPayload(),
-      androidScheduleMode: again.alarm
-          ? AndroidScheduleMode.alarmClock
-          : AndroidScheduleMode.exactAllowWhileIdle,
+      androidScheduleMode: await _mode(alarm: again.alarm),
     );
   }
 
@@ -430,6 +467,12 @@ class Reminders {
     routineReminders,
   ) async {
     if (!_ready) return;
+    // The Play build has no alarm style: everything is a normal notification.
+    if (Distribution.play) {
+      feedAlarm = false;
+      pillAlarm = false;
+    }
+    final mode = await _mode();
     if (Platform.isAndroid) {
       // Cancel the scheduled reminders but keep snoozed ones.
       for (final p in await _plugin.pendingNotificationRequests()) {
@@ -485,7 +528,7 @@ class Reminders {
           scheduledDate: at,
           notificationDetails: _details(alarm: false, info: info),
           payload: info.toPayload(),
-          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          androidScheduleMode: mode,
           matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
         );
       }
@@ -508,9 +551,7 @@ class Reminders {
         scheduledDate: tz.TZDateTime.from(b.at!, tz.local),
         notificationDetails: _details(alarm: feedAlarm, info: info),
         payload: info.toPayload(),
-        androidScheduleMode: feedAlarm
-            ? AndroidScheduleMode.alarmClock
-            : AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: await _mode(alarm: feedAlarm),
       );
     }
 
@@ -529,9 +570,7 @@ class Reminders {
         scheduledDate: tz.TZDateTime.from(feedAt, tz.local),
         notificationDetails: _details(alarm: feedAlarm, info: info),
         payload: info.toPayload(),
-        androidScheduleMode: feedAlarm
-            ? AndroidScheduleMode.alarmClock
-            : AndroidScheduleMode.exactAllowWhileIdle,
+        androidScheduleMode: await _mode(alarm: feedAlarm),
       );
     }
 
@@ -543,7 +582,8 @@ class Reminders {
         final override = pillReminderOverrides['${med.id}:$slot'];
         if (override == 'off') continue;
         final alarm =
-            override == 'alarm' || (override != 'notification' && pillAlarm);
+            !Distribution.play &&
+            (override == 'alarm' || (override != 'notification' && pillAlarm));
         var at = tz.TZDateTime(
           tz.local,
           tzNow.year,
@@ -579,9 +619,7 @@ class Reminders {
           scheduledDate: at,
           notificationDetails: _details(alarm: alarm, info: info),
           payload: info.toPayload(),
-          androidScheduleMode: alarm
-              ? AndroidScheduleMode.alarmClock
-              : AndroidScheduleMode.exactAllowWhileIdle,
+          androidScheduleMode: await _mode(alarm: alarm),
           // Repeats daily at the same time (Android only; Windows is for testing).
           matchDateTimeComponents: DateTimeComponents.time,
         );

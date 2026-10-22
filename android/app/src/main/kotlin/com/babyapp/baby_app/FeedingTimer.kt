@@ -64,9 +64,19 @@ object FeedingTimer {
         val now = System.currentTimeMillis()
         val elapsed = (now - origin).coerceAtLeast(0)
         val next = origin + (elapsed / INTERVAL + 1) * INTERVAL
-        // Alarm-clock scheduling preserves five-minute spacing in Doze. This is
-        // a visible, explicitly enabled user timer, with a quiet single chime.
-        alarms(context).setAlarmClock(AlarmManager.AlarmClockInfo(next, open(context)), tick(context, origin))
+        val manager = alarms(context)
+        val pending = tick(context, origin)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || manager.canScheduleExactAlarms()) {
+            try {
+                // Alarm-clock scheduling preserves five-minute spacing in Doze. This is
+                // a visible, explicitly enabled user timer, with a quiet single chime.
+                manager.setAlarmClock(AlarmManager.AlarmClockInfo(next, open(context)), pending)
+                return
+            } catch (e: SecurityException) {
+                android.util.Log.w("BabyLog", "Exact alarms not allowed, using an inexact one", e)
+            }
+        }
+        manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next, pending)
     }
 
     fun receive(context: Context, intent: Intent) {

@@ -5,6 +5,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../background.dart';
+import '../distribution.dart';
 import '../store.dart';
 import '../sync.dart';
 import '../routines.dart';
@@ -122,6 +123,8 @@ class RingStylePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The Play build only has normal notifications.
+    if (Distribution.play) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -176,10 +179,16 @@ Future<void> _showPillRingSheet(BuildContext context) => showSheet(
             subtitle: 'How they ring on this phone',
             glyph: Glyphs.pill,
           ),
-          RingStylePicker(
-            alarm: app.pillAlarm,
-            onChanged: (v) => app.setReminderAlarm(pill: v),
-          ),
+          if (Distribution.play)
+            LText(
+              'Pill reminders show as normal notifications.',
+              style: TextStyle(color: Baby.muted, fontWeight: FontWeight.w600),
+            )
+          else
+            RingStylePicker(
+              alarm: app.pillAlarm,
+              onChanged: (v) => app.setReminderAlarm(pill: v),
+            ),
           const SizedBox(height: 8),
         ],
       );
@@ -227,16 +236,18 @@ class FeedReminderOptions extends StatelessWidget {
               ),
           ],
         ),
-        const SizedBox(height: 18),
-        const LText(
-          'How it rings',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 8),
-        RingStylePicker(
-          alarm: app.feedAlarm,
-          onChanged: (v) => app.setReminderAlarm(feed: v),
-        ),
+        if (!Distribution.play) ...[
+          const SizedBox(height: 18),
+          const LText(
+            'How it rings',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          RingStylePicker(
+            alarm: app.feedAlarm,
+            onChanged: (v) => app.setReminderAlarm(feed: v),
+          ),
+        ],
       ],
     );
   }
@@ -443,7 +454,7 @@ class _SettingsPageState extends State<SettingsPage> {
             title: 'Feed reminder',
             subtitle: app.babyName.isEmpty ? null : 'For ${app.babyName}',
             value: app.feedReminderOn
-                ? '${feedIntervalLabel(app.feedReminderMinutes)}${app.feedAlarm ? ', alarm' : ''}'
+                ? '${feedIntervalLabel(app.feedReminderMinutes)}${app.feedAlarm && !Distribution.play ? ', alarm' : ''}'
                 : 'Off',
             onTap: () => showFeedReminderSheet(context),
           ),
@@ -454,7 +465,7 @@ class _SettingsPageState extends State<SettingsPage> {
             icon: Icons.medication_rounded,
             title: 'Pill reminders',
             subtitle: 'For you, on this phone',
-            value: app.pillAlarm ? 'Alarm' : 'Notification',
+            value: app.pillAlarm && !Distribution.play ? 'Alarm' : 'Notification',
             onTap: () => _showPillRingSheet(context),
           ),
         ),

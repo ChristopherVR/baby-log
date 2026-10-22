@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../distribution.dart';
+
 import 'common.dart';
 import 'pills_page.dart';
 import 'settings_page.dart';
@@ -510,7 +512,9 @@ class _Reminders extends StatelessWidget {
     return _Step(
       title: 'Reminders',
       art: const ReminderDemo(),
-      text: 'Get an alarm when the next feed is due, and when it is time for your pills.',
+      text: Distribution.play
+          ? 'Get a reminder when the next feed is due, and when it is time for your pills.'
+          : 'Get an alarm when the next feed is due, and when it is time for your pills.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
