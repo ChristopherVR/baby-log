@@ -37,6 +37,8 @@ void main() {
     expect(find.text('Babies'), findsOneWidget);
     expect(find.text('Noah'), findsOneWidget);
     expect(find.textContaining('Selected'), findsOneWidget);
+    await tester.ensureVisible(find.text('Select'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Select'));
     await tester.pumpAndSettle();
     expect(app.activeBabyId, noah);
@@ -44,6 +46,8 @@ void main() {
     // The summary card shows the selected baby with a tappable photo.
     expect(find.byTooltip('Change photo'), findsOneWidget);
     // Tapping a baby opens that baby's profile.
+    await tester.ensureVisible(find.text('Markus').last);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Markus').last);
     await tester.pumpAndSettle();
     expect(find.text('Save profile'), findsOneWidget);
