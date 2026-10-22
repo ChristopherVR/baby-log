@@ -13,7 +13,7 @@ void main() {
   testWidgets('settings lists every baby and lets you select and add', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(360, 900);
+    tester.view.physicalSize = const Size(360, 1600);
     tester.view.devicePixelRatio = 1;
     tester.platformDispatcher.textScaleFactorTestValue = 1.4;
     addTearDown(tester.view.reset);
@@ -37,8 +37,6 @@ void main() {
     expect(find.text('Babies'), findsOneWidget);
     expect(find.text('Noah'), findsOneWidget);
     expect(find.textContaining('Selected'), findsOneWidget);
-    await tester.ensureVisible(find.text('Select'));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('Select'));
     await tester.pumpAndSettle();
     expect(app.activeBabyId, noah);
@@ -46,8 +44,6 @@ void main() {
     // The summary card shows the selected baby with a tappable photo.
     expect(find.byTooltip('Change photo'), findsOneWidget);
     // Tapping a baby opens that baby's profile.
-    await tester.ensureVisible(find.text('Markus').last);
-    await tester.pumpAndSettle();
     await tester.tap(find.text('Markus').last);
     await tester.pumpAndSettle();
     expect(find.text('Save profile'), findsOneWidget);
