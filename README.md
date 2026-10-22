@@ -1,7 +1,20 @@
+<p align="center"><img src="store/feature-graphic.png" alt="Nestling: a gentle shared baby log" width="640"></p>
+
 # Nestling
 
-Track feeds (left / right / both / bottle, time, how long), nappies (pee / poo / both), sleep and your own pills
-with reminder alarms. Two devices share the data over Wi-Fi by scanning a QR code or typing a code.
+Track feeds (left / right / both / bottle, time, how long), nappies (pee / poo / both), sleep, growth and
+your own pills with reminders. Every device in the family hub shares the same log over Wi-Fi, or by QR codes.
+
+<p align="center">
+  <img src="store/screenshots/01-today.png" alt="Today" width="180">
+  <img src="store/screenshots/02-history.png" alt="Activity log" width="180">
+  <img src="store/screenshots/03-charts.png" alt="Charts" width="180">
+  <img src="store/screenshots/06-family.png" alt="Family hub" width="180">
+</p>
+
+Store graphics and the app icon live in `store/`. Regenerate them with
+`python tool/prepare_store_fonts.py`, `flutter test --run-skipped --tags store test/store_assets_test.dart`
+and `python tool/flatten_store_pngs.py`.
 
 Use Flutter **3.47.7** (Dart 3.13.5) and Java 21. Add Flutter's `bin` directory to PATH.
 
