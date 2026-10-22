@@ -108,25 +108,38 @@ For CI, configure these repository Actions secrets:
 | `PLAY_UPLOAD_STORE_PASSWORD` | Keystore password |
 | `PLAY_UPLOAD_KEY_ALIAS` | Upload key alias |
 | `PLAY_UPLOAD_KEY_PASSWORD` | Key password |
+| `PLAY_SERVICE_ACCOUNT_JSON` | Google Play service account key (JSON), for automatic uploads |
+
+`.\tool\set_play_secrets.ps1 [-ServiceAccountJson <path>]` sets them from
+`android/play-signing.properties` and the downloaded key without printing anything.
 
 When the keystore secret exists, every main release also builds and verifies a Play AAB using
-that release's shared version and notes. Download the `BabyLog-<version>-play-internal` artifact
-from the successful Actions run. It contains `BabyLog-<version>-play.aab`; it is not attached to
-GitHub Releases. An absent `PLAY_UPLOAD_KEYSTORE` secret skips the Play job without affecting
-APK/Windows releases. If a key is configured but invalid or incomplete, publication fails.
-The Actions summary explains when Play was skipped; no Play account access or key is needed
-until you are ready to enable AAB builds.
-The workflow verifies both the merged manifest and the AAB's upload certificate before upload.
+that release's shared version and notes, and keeps it as the `BabyLog-<version>-play-internal`
+run artifact. An absent `PLAY_UPLOAD_KEYSTORE` skips the Play job without affecting APK/Windows
+releases; a key that is configured but invalid or incomplete fails publication. The workflow
+verifies both the merged manifest and the AAB's upload certificate.
 
-In your existing Play Console account, create Nestling, confirm the package ID on the first
-bundle upload, configure Play App Signing, and upload the AAB under **Testing → Internal testing**.
-Add tester email addresses and share the opt-in link after rolling out the internal test.
-This workflow prepares the downloadable AAB; it does not publish to Play Console automatically.
+When `PLAY_SERVICE_ACCOUNT_JSON` also exists, the `play-upload` job uploads that AAB to the
+**internal testing** track after the GitHub release is published, with the release notes (cut
+to 500 characters) as "What's new". The job runs last and nothing depends on it, so a Play
+problem never blocks GitHub releases. To set it up once:
 
-The current alarm/full-screen permissions and `specialUse` foreground sync service still require
-review and applicable Play Console declarations. Store listing, privacy policy, Data safety and
-other app-content setup are separate from building the bundle; generating an AAB does not confirm
-Google Play approval.
+1. In Google Cloud Console, create (or pick) a project, enable the **Google Play Android
+   Developer API**, create a service account and download a JSON key for it.
+2. In Play Console, **Users and permissions → Invite new users**, enter the service account's
+   e-mail and give it access to Nestling with **Release to testing tracks** (and **View app
+   information**).
+3. Run `.\tool\set_play_secrets.ps1 -ServiceAccountJson <path-to-key.json>`, then delete the
+   downloaded key file.
+
+While Google still treats the app as a draft (before its first review), the API only accepts
+draft releases: set the repository variable `PLAY_RELEASE_STATUS` to `draft` and roll each one
+out in Play Console, then remove the variable once the app has been reviewed.
+
+The Play build has no background sync service, no alarm-style or full-screen reminders and no
+`USE_EXACT_ALARM`; it schedules reminders exactly only when the user allows **Alarms &
+reminders**. Store listing, privacy policy (`PRIVACY.md`), Data safety and other app content are
+set up in Play Console; generating an AAB does not confirm Google Play approval.
 
 **Existing GitHub installations:** the Play app has its own application ID and signing key, so
 Play installs it as a separate app next to the GitHub copy instead of replacing it. Move the data
