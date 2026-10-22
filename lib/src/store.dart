@@ -38,6 +38,15 @@ class AppState extends ChangeNotifier {
   @visibleForTesting
   Future<void> get pendingSave => _saving;
 
+  /// Starts the sync server (several states can run in one test).
+  @visibleForTesting
+  Future<void> startServerForTesting() =>
+      server.start(
+        onInfo: _handleInfo,
+        onSync: _handleIncoming,
+        anyPort: true,
+      );
+
   final File _file;
   final reminders = Reminders();
   final server = SyncServer();
@@ -61,6 +70,10 @@ class AppState extends ChangeNotifier {
   String deviceId = newId();
   String syncKey = _newKey();
   String deviceName = Platform.isAndroid ? 'Phone' : Platform.localHostname;
+
+  /// True once the user typed their own device name. Until then the name is
+  /// read from the device itself (e.g. "Galaxy S23") each time the app starts.
+  bool deviceNameCustom = false;
   final Map<String, Entry> _entries = {};
   final Map<String, Medication> _meds = {};
   final Map<String, BabyProfile> _babies = {};
@@ -129,14 +142,20 @@ class AppState extends ChangeNotifier {
     return true;
   }
 
-  void addBaby(String name) {
-    if (name.trim().isEmpty) return;
-    final baby = BabyProfile(name: name.trim());
+  /// Adds a baby and returns its id (null if the name is empty). By default the
+  /// new baby becomes the selected one; pass [select] false to keep the current.
+  String? addBaby(String name, {DateTime? dateOfBirth, bool select = true}) {
+    if (name.trim().isEmpty) return null;
+    final baby = BabyProfile(name: name.trim(), dateOfBirth: dateOfBirth);
     _babies[baby.id] = baby;
     _touch(baby.id);
-    if (timerStart == null) activeBabyId = baby.id;
+    if (select && timerStart == null) activeBabyId = baby.id;
     _changed();
+    return baby.id;
   }
+
+  List<GrowthEntry> growthEntriesFor(String babyId) =>
+      _growth.values.where((e) => !e.deleted && e.babyId == babyId).toList();
 
   BabyProfile get activeBaby => _babies[activeBabyId]!;
 
@@ -185,8 +204,9 @@ class AppState extends ChangeNotifier {
     required String name,
     DateTime? dateOfBirth,
     String? photo,
+    String? id,
   }) {
-    final existing = activeBaby;
+    final existing = id == null ? activeBaby : (_babies[id] ?? activeBaby);
     _babies[existing.id] = BabyProfile(
       id: existing.id,
       name: name.trim(),
@@ -291,6 +311,9 @@ class AppState extends ChangeNotifier {
   /// 'light', 'dark' or 'system'.
   String appearance = 'light';
 
+  /// Night light: a dimmer, warmer light palette from 6 pm to 6 am.
+  bool nightLight = true;
+
   /// False until the first-time setup has been finished or skipped.
   bool setupDone = false;
   final Map<String, bool> _feedReminderOn = {};
@@ -365,6 +388,10 @@ class AppState extends ChangeNotifier {
   /// A paired device was added or its address or code changed: save right away.
   bool _peersDirty = false;
 
+  /// Devices removed from the hub on this device. Gossip from other members
+  /// does not bring them back; pairing with one again explicitly does.
+  final Set<String> _removedPeers = {};
+
   static String _newKey() =>
       (Random.secure().nextInt(900000) + 100000).toString();
 
@@ -379,8 +406,11 @@ class AppState extends ChangeNotifier {
     final hadIds = await state._read();
     AppLanguage.use(state.language);
     state._rebuild();
+    final ownName = state.deviceNameCustom ? null : await DeviceIdentity.name();
+    final renamed = ownName != null && ownName != state.deviceName;
+    if (renamed) state.deviceName = ownName;
     // Persist a newly made device id and sync code straight away.
-    if (!hadIds) state._save();
+    if (!hadIds || renamed) state._save();
     await state.reminders.init();
     if (state.setupDone) unawaited(state.reminders.requestPermission());
     state._rescheduleReminders();
@@ -805,6 +835,11 @@ class AppState extends ChangeNotifier {
     _settingsChanged();
   }
 
+  void setNightLight(bool on) {
+    nightLight = on;
+    _settingsChanged();
+  }
+
   void completeSetup() {
     setupDone = true;
     _settingsChanged();
@@ -840,17 +875,33 @@ class AppState extends ChangeNotifier {
     return best;
   }
 
-  bool get syncHasError =>
-      peers.isNotEmpty && peers.every((p) => p.lastError != null);
+  /// Nothing worked: every device we have actually reached before (or paired
+  /// ourselves) failed. Members only learned through the hub and not yet
+  /// reached do not count, and one member being off does not either.
+  bool get syncHasError {
+    final counted = peers.where((p) => !p.neverReached).toList();
+    return counted.isNotEmpty && counted.every((p) => p.lastError != null);
+  }
+
   bool get syncPausedForVersion => peers.any((p) => p.blockedVersion != null);
 
   void setDeviceName(String name) {
-    deviceName = name.trim().isEmpty ? deviceName : name.trim();
+    if (name.trim().isEmpty) return;
+    deviceName = name.trim();
+    deviceNameCustom = true;
+    _settingsChanged();
+  }
+
+  /// Goes back to the name the device itself reports.
+  Future<void> useDeviceOwnName() async {
+    deviceNameCustom = false;
+    deviceName = await DeviceIdentity.name() ?? deviceName;
     _settingsChanged();
   }
 
   void forgetPeer(Peer p) {
     peers.remove(p);
+    _removedPeers.add(p.deviceId);
     _settingsChanged();
     _applyBackground();
   }
@@ -1157,8 +1208,54 @@ class AppState extends ChangeNotifier {
     return counts;
   }
 
+  /// This device's view of the hub, for other members: everyone we know
+  /// except ourselves (we describe ourselves in `from`).
+  List<Map<String, dynamic>> get _members => [
+    for (final p in peers)
+      if (p.key.isNotEmpty && p.deviceId != deviceId) p.toMemberJson(),
+  ];
+
+  /// Adds hub members told to us by another member. Never replaces what we
+  /// know first-hand: a working key stays, an address is only filled in when
+  /// we have none or ours keeps failing. Devices removed here stay removed.
+  void _learnMembers(Object? list) {
+    if (list is! List) return;
+    var added = false;
+    for (final m in list) {
+      if (m is! Map) continue;
+      final id = m['deviceId'];
+      final key = m['key'];
+      if (id is! String || id.isEmpty || id == deviceId) continue;
+      if (key is! String || key.isEmpty || _removedPeers.contains(id)) continue;
+      final host = m['host'] is String ? m['host'] as String : '';
+      final port = (m['port'] as num?)?.toInt() ?? defaultSyncPort;
+      final name = m['name'] is String ? m['name'] as String : '';
+      final known = peers.where((p) => p.deviceId == id).firstOrNull;
+      if (known == null) {
+        peers.add(
+          Peer(deviceId: id, host: host, port: port, key: key, name: name)
+            ..learnedFromHub = true,
+        );
+        added = true;
+        _peersDirty = true;
+        continue;
+      }
+      if (known.key.isEmpty) known.key = key;
+      if (known.name.isEmpty && name.isNotEmpty) known.name = name;
+      if (host.isNotEmpty &&
+          (known.host.isEmpty ||
+              (known.failures >= 3 && known.host != host))) {
+        known.host = host;
+        known.port = port;
+        _peersDirty = true;
+      }
+    }
+    if (added) Future.microtask(_applyBackground);
+  }
+
   Peer _rememberPeer(Map<String, dynamic> from, String? host) {
     final id = from['deviceId'] as String;
+    _removedPeers.remove(id);
     final port = (from['port'] as num?)?.toInt() ?? defaultSyncPort;
     final key = from['key'] as String?;
     final name = from['name'] as String? ?? '';
@@ -1199,6 +1296,7 @@ class AppState extends ChangeNotifier {
         'counts': counts,
         'seq': _seq,
         'knowsYou': peers.any((p) => p.deviceId == askerId),
+        'members': _members,
       }..remove('key'),
     );
   }
@@ -1217,6 +1315,7 @@ class AppState extends ChangeNotifier {
       return (status: HttpStatus.badRequest, body: null);
     }
     final peer = _rememberPeer(Map<String, dynamic>.from(from), remoteIp);
+    _learnMembers(body['members']);
 
     // Different app versions only sync if one of the two phones accepted it.
     final theirVersion = from['appVersion'] as String? ?? olderVersion;
@@ -1277,6 +1376,7 @@ class AppState extends ChangeNotifier {
       body: {
         'v': 2,
         'from': _me,
+        'members': _members,
         'seq': _seq,
         'took': newHere,
         'entries': reply.entries,
@@ -1298,6 +1398,7 @@ class AppState extends ChangeNotifier {
     }
     final theirVersion = info['appVersion'] as String? ?? olderVersion;
     p.appVersion = theirVersion;
+    _learnMembers(info['members']);
     if (info['name'] is String) p.name = info['name'];
     if (info['counts'] is Map) {
       p.remoteCounts = {
@@ -1336,6 +1437,8 @@ class AppState extends ChangeNotifier {
       p
         ..lastSync = DateTime.now()
         ..lastError = null
+        ..failures = 0
+        ..unreachable = false
         ..ackedSeq = sentUpTo;
       _metaChanged(notify: hadError);
       return;
@@ -1344,6 +1447,7 @@ class AppState extends ChangeNotifier {
       'v': 2,
       'key': p.key,
       'from': _me,
+      'members': _members,
       if (!sameFeatures(theirVersion)) 'acceptVersion': theirVersion,
       'since': p.theirSeq,
       'seq': sentUpTo,
@@ -1359,6 +1463,7 @@ class AppState extends ChangeNotifier {
       throw VersionMismatchException(p.deviceId, theirVersion);
     }
 
+    _learnMembers(res.body['members']);
     final newHere = _mergePayload(res.body, from: p.deviceId);
     p.ackedSeq = sentUpTo;
     final theirSeq = (res.body['seq'] as num?)?.toInt();
@@ -1480,7 +1585,7 @@ class AppState extends ChangeNotifier {
     final info = await getInfo(host, port, key, deviceId);
     if (info['deviceId'] is! String) {
       throw SyncException(
-        'The other phone has an older version of Baby Log. Install the same version on both phones.',
+        'The other phone has an older version of Nestling. Install the same version on both phones.',
       );
     }
     if (info['deviceId'] == deviceId) {
@@ -1493,7 +1598,7 @@ class AppState extends ChangeNotifier {
     } on VersionMismatchException {
       rethrow;
     } catch (e) {
-      peer.lastError = e.toString();
+      _noteFailure(peer, e);
       throw SyncException(
         'Paired, but the first sync failed: $e. It will try again by itself.',
       );
@@ -1506,11 +1611,17 @@ class AppState extends ChangeNotifier {
     try {
       await BackgroundSync.whileAwake(() => _syncFinding(p, force: true));
     } catch (e) {
-      p.lastError = e.toString();
+      _noteFailure(p, e);
       _metaChanged(notify: false);
       rethrow;
     }
   });
+
+  void _noteFailure(Peer p, Object e) {
+    p.lastError = e.toString();
+    p.failures++;
+    p.unreachable = e is UnreachableException;
+  }
 
   /// Syncs with every paired device. Returns an error message, or null.
   /// [force]: the user asked (pull to refresh), so a phone that moved is
@@ -1531,8 +1642,12 @@ class AppState extends ChangeNotifier {
           try {
             await _syncFinding(p, force: force);
           } catch (e) {
-            p.lastError = e.toString();
-            error = '${p.name.isEmpty ? p.host : p.name}: $e';
+            _noteFailure(p, e);
+            // A member learned through the hub that is simply off or elsewhere
+            // is not worth an error message.
+            if (!(p.learnedFromHub && e is UnreachableException)) {
+              error = '${p.name.isEmpty ? p.host : p.name}: $e';
+            }
           }
           if (p.lastError != before) errorsChanged = true;
         }
@@ -1552,6 +1667,7 @@ class AppState extends ChangeNotifier {
     return QrTransfer.encode({
       'app': 'babylog-qr',
       'from': _me,
+      'members': _members,
       'seq': _seq,
       'ack': to?.theirSeq ?? 0,
       'entries': changes.entries,
@@ -1574,7 +1690,7 @@ class AppState extends ChangeNotifier {
     if (body['app'] != 'babylog-qr' ||
         from is! Map ||
         from['deviceId'] is! String) {
-      throw SyncException('That is not a Baby Log sync code');
+      throw SyncException('That is not a Nestling sync code');
     }
     if (from['deviceId'] == deviceId) {
       throw SyncException('That code is from this phone');
@@ -1589,6 +1705,7 @@ class AppState extends ChangeNotifier {
       throw VersionMismatchException(from['deviceId'] as String, theirVersion);
     }
     final peer = _rememberPeer(Map<String, dynamic>.from(from), null);
+    _learnMembers(body['members']);
     peer.appVersion = theirVersion;
     if (!sameFeatures(theirVersion)) peer.acceptedVersion = theirVersion;
     peer.blockedVersion = null;
@@ -1651,7 +1768,7 @@ class AppState extends ChangeNotifier {
     if (j is! Map<String, dynamic> ||
         (j['app'] != 'babylog' &&
             !(j['deviceId'] is String && j['entries'] is List))) {
-      throw const FormatException('This is not a Baby Log backup file');
+      throw const FormatException('This is not a Nestling backup file');
     }
     final counts = _mergePayload(j);
     _changed();
@@ -1679,6 +1796,10 @@ class AppState extends ChangeNotifier {
       deviceId = j['deviceId'] as String? ?? deviceId;
       syncKey = j['syncKey'] as String? ?? syncKey;
       deviceName = j['deviceName'] as String? ?? deviceName;
+      // Older files had no flag: only the built-in defaults were not typed.
+      deviceNameCustom =
+          j['deviceNameCustom'] as bool? ??
+          !{'Phone', Platform.localHostname}.contains(deviceName);
       _legacyBabyName = j['babyName'] as String? ?? '';
       activeBabyId = j['activeBabyId'] as String? ?? defaultBabyId;
       caregiverName = j['caregiverName'] as String? ?? '';
@@ -1694,6 +1815,7 @@ class AppState extends ChangeNotifier {
         Map<String, int>.from(j['babyFeedReminderMinutes'] as Map? ?? {}),
       );
       appearance = j['appearance'] as String? ?? 'light';
+      nightLight = j['nightLight'] as bool? ?? true;
       setupDone = j['setupDone'] as bool? ?? false;
       if (!j.containsKey('babyFeedReminderOn')) {
         _feedReminderOn[defaultBabyId] = j['feedReminderOn'] as bool? ?? false;
@@ -1752,6 +1874,12 @@ class AppState extends ChangeNotifier {
         ..clear()
         ..addAll(origins);
       peers.addAll(loadedPeers);
+      _removedPeers
+        ..clear()
+        ..addAll([
+          for (final id in j['removedPeers'] as List? ?? [])
+            if (id is String) id,
+        ]);
       return hadIds;
     } catch (e) {
       debugPrint('Could not read ${_file.path}: $e');
@@ -1769,6 +1897,7 @@ class AppState extends ChangeNotifier {
       _routineCompletions.clear();
       activeBabyId = defaultBabyId;
       peers.clear();
+      _removedPeers.clear();
       _seqOf.clear();
       _from.clear();
       _remindHere.clear();
@@ -1785,6 +1914,7 @@ class AppState extends ChangeNotifier {
       'deviceId': deviceId,
       'syncKey': syncKey,
       'deviceName': deviceName,
+      'deviceNameCustom': deviceNameCustom,
       'babyName': babyName,
       'activeBabyId': activeBabyId,
       'caregiverName': caregiverName,
@@ -1794,6 +1924,7 @@ class AppState extends ChangeNotifier {
       'babyFeedReminderOn': _feedReminderOn,
       'babyFeedReminderMinutes': _feedReminderMinutes,
       'appearance': appearance,
+      'nightLight': nightLight,
       'setupDone': setupDone,
       'feedReminderOn': _feedReminderOn[defaultBabyId] ?? false,
       'feedReminderMinutes': _feedReminderMinutes[defaultBabyId] ?? 180,
@@ -1818,6 +1949,7 @@ class AppState extends ChangeNotifier {
       'seqs': _seqOf,
       'origins': _from,
       'peers': [for (final p in peers) p.toJson()],
+      'removedPeers': _removedPeers.toList(),
     });
     _saving = _saving
         .then((_) async {

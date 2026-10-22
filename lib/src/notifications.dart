@@ -119,7 +119,7 @@ class Reminders {
     _timerPlan = plan;
     final title = tr('Feeding check-in');
     final body = tr(
-      'Another 5 minutes of feeding. Open Baby Log to pause or finish.',
+      'Another 5 minutes of feeding. Open Nestling to pause or finish.',
     );
     _timerQueue = _timerQueue
         .then((_) async {
@@ -245,7 +245,7 @@ class Reminders {
   static const _initSettings = InitializationSettings(
     android: AndroidInitializationSettings('@mipmap/ic_launcher'),
     windows: WindowsInitializationSettings(
-      appName: 'Baby Log',
+      appName: 'Nestling',
       appUserModelId: 'BabyApp.BabyLog',
       guid: '6f1d6c39-2a3e-4d7b-9b8e-3c2f4a5e7d10',
     ),

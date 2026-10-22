@@ -7,36 +7,7 @@ import '../history_period.dart';
 import '../history_stats.dart';
 import 'common.dart';
 import 'history_period_controls.dart';
-import 'routines_page.dart';
 import 'theme.dart';
-
-class ChartsPage extends StatelessWidget {
-  const ChartsPage({super.key});
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const LText('Charts'),
-      actions: const [RefreshSyncButton()],
-    ),
-    body: PageWidth(
-      child: Column(
-        children: [
-          const BabyPicker(),
-          Expanded(
-            child: PullToSync(
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-                children: const [HistoryCharts()],
-              ),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
 
 class HistoryCharts extends StatefulWidget {
   const HistoryCharts({super.key});
@@ -97,14 +68,7 @@ class _HistoryChartsState extends State<HistoryCharts> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 12),
-        const LText(
-          'Discover daily patterns',
-          style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 6),
-        const LText(
-          'Totals and patterns for this baby in the selected period.',
-        ),
+        const LText('Patterns over time: feeds, nappies, sleep'),
         const SizedBox(height: 12),
         HistoryPeriodControls(
           period: period,

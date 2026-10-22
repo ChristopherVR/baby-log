@@ -7,7 +7,10 @@ void main() {
   test('payload survives being split into codes and scanned out of order', () {
     final payload = {
       'app': 'babylog-qr',
-      'entries': [for (var i = 0; i < 300; i++) {'id': 'e$i', 'type': 'feed', 'time': 1792000000000 + i * 60000}],
+      'entries': [
+        for (var i = 0; i < 300; i++)
+          {'id': 'e$i', 'type': 'feed', 'time': 1792000000000 + i * 60000},
+      ],
     };
     final codes = QrTransfer.encode(payload);
     expect(codes.length, greaterThan(1));
@@ -15,7 +18,11 @@ void main() {
     final collector = QrCollector();
     for (final c in codes.reversed) {
       expect(collector.add(c), isTrue);
-      expect(collector.add(c), isFalse, reason: 'the same code twice counts once');
+      expect(
+        collector.add(c),
+        isFalse,
+        reason: 'the same code twice counts once',
+      );
     }
     expect(collector.done, isTrue);
     expect(jsonEncode(collector.result()), jsonEncode(payload));
@@ -29,5 +36,4 @@ void main() {
     expect(collector.done, isTrue);
     expect(collector.result()['n'], 'b');
   });
-
 }

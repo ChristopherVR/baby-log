@@ -1,4 +1,4 @@
-# Baby Log
+# Nestling
 
 Track feeds (left / right / both / bottle, time, how long), nappies (pee / poo / both), sleep and your own pills
 with reminder alarms. Two devices share the data over Wi-Fi by scanning a QR code or typing a code.
@@ -13,7 +13,7 @@ and run `baby_app.exe`. Keep the DLLs and `data` folder together with the execut
 The ZIP includes the Visual C++ runtime; Flutter, Visual Studio and Developer Mode are
 not required to run it.
 
-Keep Baby Log open on the PC and phone on the same local network. Allow the Windows
+Keep Nestling open on the PC and phone on the same local network. Allow the Windows
 Firewall prompt for **private networks**. On the phone, scan the PC's pairing QR code
 in Settings, or type its address and code. The PC can pair by typing the phone's
 address and code too. Windows uses the same Wi-Fi sync protocol, incremental changes,
@@ -59,11 +59,12 @@ Or with the phone plugged in (USB debugging on): `flutter run --flavor github`.
 
 ## GitHub and Google Play Android builds
 
-Two Android flavors share the same application ID (`com.babyapp.baby_app`),
-versioning, data format and Wi-Fi/QR sync logic:
+Two Android flavors share versioning, data format and Wi-Fi/QR sync logic, but not the
+application ID:
 
-- `github`: preserves the existing APK signing key, GitHub update check and APK installer.
-- `play`: has no APK installer, installation permission or update FileProvider. The version
+- `github` (`com.babyapp.baby_app`): preserves the existing application ID, APK signing key,
+  GitHub update check and APK installer, so sideloaded copies keep updating in place.
+- `play` (`io.github.christophervr.nestling`): has no APK installer, installation permission or update FileProvider. The version
   dialog opens Google Play, which manages updates. Play releases require a separate upload
   key and never fall back to debug signing.
 
@@ -99,7 +100,7 @@ The Actions summary explains when Play was skipped; no Play account access or ke
 until you are ready to enable AAB builds.
 The workflow verifies both the merged manifest and the AAB's upload certificate before upload.
 
-In your existing Play Console account, create Baby Log, confirm the package ID on the first
+In your existing Play Console account, create Nestling, confirm the package ID on the first
 bundle upload, configure Play App Signing, and upload the AAB under **Testing → Internal testing**.
 Add tester email addresses and share the opt-in link after rolling out the internal test.
 This workflow prepares the downloadable AAB; it does not publish to Play Console automatically.
@@ -109,12 +110,12 @@ review and applicable Play Console declarations. Store listing, privacy policy, 
 other app-content setup are separate from building the bundle; generating an AAB does not confirm
 Google Play approval.
 
-**Existing GitHub installations:** Play App Signing uses a different signing certificate from the
-current debug-signed APKs. Despite the same package ID, Play cannot simply replace those copies.
-Export a JSON backup before uninstalling the GitHub copy, then install from Play and restore the
-backup. Do not uninstall without a backup. The two channels cannot be installed side by side.
-Once enrolled, future Play installations should update through Play; GitHub installations continue
-using the existing GitHub key. Keep Play's version codes increasing when uploading subsequent bundles.
+**Existing GitHub installations:** the Play app has its own application ID and signing key, so
+Play installs it as a separate app next to the GitHub copy instead of replacing it. Move the data
+over by adding the Play copy to the family hub (it syncs everything) or with Export/Import backup,
+then uninstall the GitHub copy; keep only one copy open, since both use the same sync port.
+Play installations update through Play; GitHub installations keep updating from GitHub releases.
+Keep Play's version codes increasing when uploading subsequent bundles.
 
 ## How syncing works
 
@@ -242,9 +243,9 @@ the update controls. Checks run only when you tap the version. Internet access i
 baby logs are not sent to GitHub.
 
 Tap **Update** to download with progress, then confirm Android's installation prompt. The first
-time, Android may ask you to allow installations from Baby Log; return and tap **Update** again.
+time, Android may ask you to allow installations from Nestling; return and tap **Update** again.
 The downloaded APK is reused. Cancelling leaves the current app usable. Updates preserve local data.
-Before opening the installer, Baby Log checks download size, package identity, increasing Android
+Before opening the installer, Nestling checks download size, package identity, increasing Android
 build code and matching signing certificate. Android also verifies the APK during installation.
 Windows releases are downloaded and updated manually using the ZIP. The Android updater is for GitHub APK distribution;
 a future Play Store build needs Play's update flow.
@@ -255,7 +256,7 @@ collapse into a release of the newest revision. Manual reruns of stale revisions
 Release notes are generated by git-cliff using `cliff.toml`, covering all changes since the last
 published stable release (including changes from cancelled builds). The same notes are published
 on GitHub and bundled offline inside both builds. On the first foreground launch of that version,
-Baby Log shows **What's new** once. Dismissing it is remembered on that device, across restarts;
+Nestling shows **What's new** once. Dismissing it is remembered on that device, across restarts;
 this acknowledgement is neither synced nor included in backups. Development builds without
 matching bundled notes do not show the dialog. Commit subjects become the release notes, so
 write them as clear descriptions of the changes.

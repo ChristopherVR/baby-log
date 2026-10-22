@@ -58,6 +58,7 @@ object Background {
                     keepAwake(app, (call.arguments as? Number)?.toLong() ?: 30_000L)
                     result.success(null)
                 }
+                "deviceName" -> result.success(deviceName(app))
                 "releaseAwake" -> {
                     wakeLock?.takeIf { it.isHeld }?.release()
                     result.success(null)
@@ -92,6 +93,23 @@ object Background {
             // again next time the app opens.
             android.util.Log.w("BabyLog", "Could not start sync service", e)
         }
+    }
+
+    /// The name the user gave this phone in Android settings, else e.g. "Samsung SM-S911B".
+    private fun deviceName(context: Context): String {
+        val resolver = context.contentResolver
+        val named = try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
+                Settings.Global.getString(resolver, Settings.Global.DEVICE_NAME)
+            } else {
+                null
+            } ?: Settings.Secure.getString(resolver, "bluetooth_name")
+        } catch (e: Exception) {
+            null
+        }
+        if (!named.isNullOrBlank()) return named.trim()
+        val maker = Build.MANUFACTURER.replaceFirstChar { it.uppercase() }
+        return if (Build.MODEL.startsWith(maker, ignoreCase = true)) Build.MODEL else "$maker ${Build.MODEL}"
     }
 
     @SuppressLint("BatteryLife")

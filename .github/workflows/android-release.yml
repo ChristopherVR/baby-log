@@ -270,5 +270,5 @@ jobs:
             gh release edit "$RELEASE_TAG" --notes-file RELEASE_NOTES.md
           else
             gh release create "$RELEASE_TAG" "$APK" "$WINDOWS" --target "$GITHUB_SHA" \
-              --title "Baby Log ${VERSION}" --notes-file RELEASE_NOTES.md
+              --title "Nestling ${VERSION}" --notes-file RELEASE_NOTES.md
           fi

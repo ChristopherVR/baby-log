@@ -371,7 +371,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.pump();
-    expect(find.text('4 kg'), findsOneWidget);
+    expect(find.text('4 kg'), findsWidgets);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });

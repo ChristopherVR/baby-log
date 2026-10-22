@@ -226,82 +226,91 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets(
-    'separate charts screen renders daily and hourly views on a narrow screen',
-    (tester) async {
-      await tester.binding.setSurfaceSize(const Size(360, 800));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      app.addEntry(Entry(type: EntryType.feed, time: DateTime.now()));
-      await open(tester, const HistoryPage());
-      await tester.tap(find.text('Charts'));
-      await tester.pumpAndSettle();
-      expect(find.text('Wees per day'), findsOneWidget);
-      expect(find.byType(EntryTile), findsNothing);
-      final firstDate = HistoryPeriod.recent(DateTime.now(), 7).start!;
-      final firstBar = find.byWidgetPredicate(
-        (widget) =>
-            widget is Semantics &&
-            widget.properties.label ==
-                'Feeds per day, ${DateFormat('d MMM').format(firstDate)}: 0',
-      );
-      await tester.ensureVisible(firstBar);
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.ancestor(of: firstBar, matching: find.byType(InkWell)).first,
-      );
-      await tester.pumpAndSettle();
-      expect(
-        find.text('${DateFormat('EEE d MMM yyyy').format(firstDate)} · 0'),
-        findsOneWidget,
-      );
-      await tester.ensureVisible(find.text('30 days'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('30 days'));
-      await tester.pumpAndSettle();
-      for (final title in [
-        'Poos per day',
-        'Sleep hours per day',
-        'Feed minutes per day',
-        'Bottle ml per day',
-        'Pills per day',
-        'Next-day estimate',
-      ]) {
-        await tester.scrollUntilVisible(
-          find.text(title),
-          250,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await tester.pumpAndSettle();
-        expect(find.text(title), findsOneWidget);
-        expect(tester.takeException(), isNull);
-      }
+  testWidgets('charts tab renders daily and hourly views on a narrow screen', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    app.addEntry(Entry(type: EntryType.feed, time: DateTime.now()));
+    await open(tester, const HistoryPage());
+    await tester.tap(find.text('Charts'));
+    await tester.pumpAndSettle();
+    expect(find.text('Wees per day'), findsOneWidget);
+    expect(find.byType(EntryTile), findsNothing);
+    final firstDate = HistoryPeriod.recent(DateTime.now(), 7).start!;
+    final firstBar = find.byWidgetPredicate(
+      (widget) =>
+          widget is Semantics &&
+          widget.properties.label ==
+              'Feeds per day, ${DateFormat('d MMM').format(firstDate)}: 0',
+    );
+    await tester.ensureVisible(firstBar);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.ancestor(of: firstBar, matching: find.byType(InkWell)).first,
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text('${DateFormat('EEE d MMM yyyy').format(firstDate)} · 0'),
+      findsOneWidget,
+    );
+    await tester.ensureVisible(find.text('30 days'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('30 days'));
+    await tester.pumpAndSettle();
+    for (final title in [
+      'Poos per day',
+      'Sleep hours per day',
+      'Feed minutes per day',
+      'Bottle ml per day',
+      'Pills per day',
+      'Next-day estimate',
+    ]) {
       await tester.scrollUntilVisible(
-        find.text('By hour'),
-        -400,
-        scrollable: find.byType(Scrollable).first,
+        find.text(title),
+        250,
+        scrollable: find
+            .byWidgetPredicate(
+              (w) => w is Scrollable && w.axis == Axis.vertical,
+            )
+            .first,
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('By hour'));
+      expect(find.text(title), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }
+    await tester.scrollUntilVisible(
+      find.text('By hour'),
+      -400,
+      scrollable: find
+          .byWidgetPredicate((w) => w is Scrollable && w.axis == Axis.vertical)
+          .first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('By hour'));
+    await tester.pumpAndSettle();
+    for (final title in [
+      'Feeds by hour',
+      'Wees by hour',
+      'Poos by hour',
+      'Sleep hours by hour',
+    ]) {
+      await tester.scrollUntilVisible(
+        find.text(title),
+        250,
+        scrollable: find
+            .byWidgetPredicate(
+              (w) => w is Scrollable && w.axis == Axis.vertical,
+            )
+            .first,
+      );
       await tester.pumpAndSettle();
-      for (final title in [
-        'Feeds by hour',
-        'Wees by hour',
-        'Poos by hour',
-        'Sleep hours by hour',
-      ]) {
-        await tester.scrollUntilVisible(
-          find.text(title),
-          250,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull);
-      }
-      await tester.pageBack();
-      await tester.pumpAndSettle();
-      expect(find.text('Activity log'), findsOneWidget);
-    },
-  );
+      expect(tester.takeException(), isNull);
+    }
+    await tester.tap(find.text('Activity log'));
+    await tester.pumpAndSettle();
+    expect(find.byType(EntryTile), findsOneWidget);
+  });
 
   test('explicit day and hour clip counts and sleep at both boundaries', () {
     final stats = HistoryStats(
@@ -393,6 +402,8 @@ void main() {
     expect(find.text('No entries match these filters'), findsOneWidget);
     await tester.tap(find.byTooltip('Next day'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('More options'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byType(DropdownButtonFormField<int>));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
@@ -406,10 +417,19 @@ void main() {
     await tester.scrollUntilVisible(
       find.widgetWithText(ChoiceChip, 'Feeds'),
       150,
-      scrollable: find.byType(Scrollable).first,
+      scrollable: find
+          .byWidgetPredicate((w) => w is Scrollable && w.axis == Axis.vertical)
+          .first,
     );
     await tester.tap(find.widgetWithText(ChoiceChip, 'Feeds'));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byType(EntryTile),
+      150,
+      scrollable: find
+          .byWidgetPredicate((w) => w is Scrollable && w.axis == Axis.vertical)
+          .first,
+    );
     expect(find.byType(EntryTile), findsOneWidget);
     final tile = tester.widget<EntryTile>(find.byType(EntryTile));
     expect(tile.entry.time.hour, 9);

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -333,6 +334,65 @@ class _RefreshSyncButtonState extends State<RefreshSyncButton> {
   }
 }
 
+// ------------------------------------------------------------------ desktop
+
+/// The desktop design layer: wide windows (Windows, macOS, Linux, or a big
+/// tablet in landscape) get a sidebar, a top bar, compact bordered controls
+/// and centred dialogs instead of bottom sheets. Phones keep their layout.
+abstract final class Desktop {
+  /// Window width from which the desktop layout is used.
+  static const double breakpoint = 840;
+
+  /// Window width from which the sidebar shows labels, not just icons.
+  static const double wideSidebar = 1200;
+
+  static bool of(BuildContext context) =>
+      MediaQuery.sizeOf(context).width >= breakpoint;
+
+  /// Shortcut label for the platform's main modifier, e.g. "Ctrl K".
+  static String shortcut(String key) =>
+      '${defaultTargetPlatform == TargetPlatform.macOS ? '⌘' : 'Ctrl'} $key';
+}
+
+/// Applies the compact desktop theme below it while the window is wide.
+/// The widget tree keeps the same shape when the window is resized, so
+/// nothing below loses its state.
+class DesktopScope extends StatelessWidget {
+  const DesktopScope({super.key, required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Theme(
+    data: Desktop.of(context) ? babyTheme(desktop: true) : Theme.of(context),
+    child: child,
+  );
+}
+
+/// A keyboard key hint, e.g. "Ctrl K" or "Esc".
+class Kbd extends StatelessWidget {
+  const Kbd(this.label, {super.key});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+    decoration: BoxDecoration(
+      color: Baby.card,
+      border: Border.all(color: Baby.borderStrong),
+      borderRadius: BorderRadius.circular(DesktopTokens.radiusSm - 1),
+    ),
+    child: LText(
+      label,
+      style: TextStyle(
+        fontSize: 11.5,
+        fontWeight: FontWeight.w700,
+        color: Baby.muted,
+        height: 1.4,
+      ),
+    ),
+  );
+}
+
 /// Fluid content width with a comfortable limit on large desktop displays.
 class PageWidth extends StatelessWidget {
   const PageWidth({super.key, required this.child, this.maxWidth = 1200});
@@ -367,7 +427,13 @@ class IconBubble extends StatelessWidget {
     width: size,
     height: size,
     alignment: Alignment.center,
-    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    // Rounded squares on desktop, circles on the phone.
+    decoration: Desktop.of(context)
+        ? BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(size * 0.28),
+          )
+        : BoxDecoration(color: color, shape: BoxShape.circle),
     child: glyph(size * 0.52, iconColor),
   );
 }
@@ -421,24 +487,64 @@ class SectionTitle extends StatelessWidget {
   final Widget? trailing;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
-    child: Row(
-      children: [
-        Expanded(
-          child: LText(
-            text,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: Baby.ink,
+  Widget build(BuildContext context) {
+    final desktop = Desktop.of(context);
+    return Padding(
+      padding: desktop
+          ? const EdgeInsets.fromLTRB(2, 20, 2, 8)
+          : const EdgeInsets.fromLTRB(6, 24, 6, 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: LText(
+              text,
+              style: TextStyle(
+                fontSize: desktop ? 13 : 14,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.3,
+                color: Baby.muted,
+              ),
             ),
           ),
-        ),
-        ?trailing,
-      ],
-    ),
-  );
+          ?trailing,
+        ],
+      ),
+    );
+  }
+}
+
+/// Scales its child down slightly while pressed, for tactile feedback on the
+/// big buttons. Does nothing when animations are disabled.
+class PressScale extends StatefulWidget {
+  const PressScale({super.key, required this.child});
+  final Widget child;
+
+  @override
+  State<PressScale> createState() => _PressScaleState();
+}
+
+class _PressScaleState extends State<PressScale> {
+  bool _down = false;
+
+  void _set(bool v) {
+    if (_down != v && mounted) setState(() => _down = v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final still = MediaQuery.disableAnimationsOf(context);
+    return Listener(
+      onPointerDown: (_) => _set(true),
+      onPointerUp: (_) => _set(false),
+      onPointerCancel: (_) => _set(false),
+      child: AnimatedScale(
+        scale: _down && !still ? 0.97 : 1,
+        duration: still ? Duration.zero : const Duration(milliseconds: 150),
+        curve: Curves.easeOutCubic,
+        child: widget.child,
+      ),
+    );
+  }
 }
 
 /// Big pastel tile for the main actions on the Today screen.
@@ -462,48 +568,106 @@ class ActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: soft,
-      borderRadius: BorderRadius.circular(24),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(24),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 16, 12, 14),
-          child: Column(
-            children: [
-              IconBubble(
-                glyph: glyph,
-                color: Baby.card,
-                iconColor: strong,
-                size: 56,
-              ),
-              const SizedBox(height: 10),
-              LText(
-                label,
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  color: Baby.ink,
+    if (Desktop.of(context)) return _desktop(context);
+    return PressScale(
+      child: Material(
+        color: soft,
+        borderRadius: BorderRadius.circular(28),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(10, 20, 10, 16),
+            child: Column(
+              children: [
+                IconBubble(
+                  glyph: glyph,
+                  color: Baby.card,
+                  iconColor: strong,
+                  size: 60,
                 ),
-              ),
-              const SizedBox(height: 2),
-              LText(
-                hint,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: strong,
+                const SizedBox(height: 12),
+                LText(
+                  label,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Baby.ink,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 2),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  switchInCurve: Curves.easeOutCubic,
+                  child: LText(
+                    hint,
+                    key: ValueKey(hint),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: strong,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+
+  /// Compact bordered button: icon square, label and hint side by side.
+  Widget _desktop(BuildContext context) => Material(
+    color: Baby.card,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(DesktopTokens.radiusLg),
+      side: BorderSide(color: Baby.border),
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: onTap,
+      hoverColor: soft.withValues(alpha: 0.6),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            IconBubble(glyph: glyph, color: soft, iconColor: strong, size: 40),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  LText(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: Baby.ink,
+                    ),
+                  ),
+                  LText(
+                    hint,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: strong,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 /// One logged entry as a row: icon, title/detail, time.
@@ -528,27 +692,30 @@ class EntryTile extends StatelessWidget {
       if (elsewhere != null) 'by $elsewhere',
     ].join(' · ');
     final duplicate = app.isPossibleDuplicate(entry);
+    final desktop = Desktop.of(context);
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: desktop
+            ? const EdgeInsets.symmetric(horizontal: 14, vertical: 9)
+            : const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
             IconBubble(
               glyph: look.glyph,
               color: look.soft,
               iconColor: look.strong,
-              size: 42,
+              size: desktop ? 34 : 42,
             ),
-            const SizedBox(width: 14),
+            SizedBox(width: desktop ? 12 : 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   LText(
                     entryTitle(entry),
-                    style: const TextStyle(
-                      fontSize: 16,
+                    style: TextStyle(
+                      fontSize: desktop ? 14.5 : 16,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -587,9 +754,10 @@ class EntryTile extends StatelessWidget {
                   ? DateFormat('EEE d MMM, HH:mm').format(entry.time)
                   : hm(entry.time),
               style: TextStyle(
-                fontSize: 15,
+                fontSize: desktop ? 13.5 : 15,
                 fontWeight: FontWeight.w700,
                 color: Baby.muted,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
           ],
@@ -610,7 +778,14 @@ class ListCard extends StatelessWidget {
     child: Column(
       children: [
         for (var i = 0; i < children.length; i++) ...[
-          if (i > 0) const Divider(indent: 70),
+          if (i > 0)
+            Desktop.of(context)
+                ? Divider(color: Baby.border)
+                : Divider(
+                    indent: 74,
+                    endIndent: 16,
+                    color: Baby.line.withValues(alpha: 0.6),
+                  ),
           children[i],
         ],
       ],
@@ -635,49 +810,52 @@ class SheetHeader extends StatelessWidget {
   final Color? strong;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 16),
-    child: Row(
-      children: [
-        if (glyph != null) ...[
-          IconBubble(
-            glyph: glyph!,
-            color: soft ?? Baby.pillSoft,
-            iconColor: strong ?? Baby.pill,
-            size: 48,
-          ),
-          const SizedBox(width: 14),
-        ],
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              LText(
-                title,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              if (subtitle != null)
+  Widget build(BuildContext context) {
+    final desktop = Desktop.of(context);
+    return Padding(
+      padding: EdgeInsets.only(bottom: desktop ? 14 : 16),
+      child: Row(
+        children: [
+          if (glyph != null) ...[
+            IconBubble(
+              glyph: glyph!,
+              color: soft ?? Baby.pillSoft,
+              iconColor: strong ?? Baby.pill,
+              size: desktop ? 38 : 48,
+            ),
+            SizedBox(width: desktop ? 12 : 14),
+          ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 LText(
-                  subtitle!,
+                  title,
                   style: TextStyle(
-                    color: Baby.muted,
-                    fontWeight: FontWeight.w600,
+                    fontSize: desktop ? 18 : 22,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-            ],
+                if (subtitle != null)
+                  LText(
+                    subtitle!,
+                    style: TextStyle(
+                      color: Baby.muted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+              ],
+            ),
           ),
-        ),
-        LIconButton(
-          tooltip: 'Close',
-          icon: const Icon(Icons.close_rounded),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ],
-    ),
-  );
+          LIconButton(
+            tooltip: 'Close',
+            icon: const Icon(Icons.close_rounded),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Selectable option tile (feed side, appearance, schedule type...).
@@ -703,20 +881,34 @@ class OptionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final desktop = Desktop.of(context);
+    final radius = desktop ? DesktopTokens.radius + 2 : 20.0;
     return Material(
-      color: selected ? color : Baby.card,
+      color: selected
+          ? color
+          : desktop
+          ? Baby.card
+          : Baby.line.withValues(alpha: 0.45),
+      animationDuration: const Duration(milliseconds: 200),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(radius),
         side: BorderSide(
-          color: selected ? Colors.transparent : Baby.line,
-          width: 1.5,
+          color: selected
+              ? (glyphColor ?? Baby.feed).withValues(alpha: 0.35)
+              : desktop
+              ? Baby.border
+              : Colors.transparent,
+          width: desktop && !selected ? 1 : 1.5,
         ),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(radius),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
+          padding: EdgeInsets.symmetric(
+            vertical: desktop ? 10 : 14,
+            horizontal: 6,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

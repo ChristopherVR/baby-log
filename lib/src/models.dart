@@ -306,7 +306,7 @@ class SyncRecord {
   );
 }
 
-/// Another device we have paired with.
+/// Another member of the sharing hub (paired directly or learned from a member).
 class Peer {
   final String deviceId;
   String host;
@@ -339,6 +339,17 @@ class Peer {
 
   SyncRecord? last;
 
+  /// Learned from another member of the hub rather than paired directly.
+  bool learnedFromHub = false;
+
+  /// Consecutive failed syncs, and whether the last failure was "cannot reach".
+  /// Not saved: they only describe the current session.
+  int failures = 0;
+  bool unreachable = false;
+
+  /// Known through the hub but never reached yet.
+  bool get neverReached => learnedFromHub && lastSync == null;
+
   /// Recent syncs that changed something, newest first.
   List<SyncRecord> history = [];
 
@@ -355,6 +366,8 @@ class Peer {
     last = r;
     lastSync = r.at;
     lastError = null;
+    failures = 0;
+    unreachable = false;
     if (r.changedSomething) {
       history.insert(0, r);
       if (history.length > 30) history.removeLast();
@@ -372,6 +385,7 @@ class Peer {
     if (acceptedVersion != null) 'acceptedVersion': acceptedVersion,
     if (blockedVersion != null) 'blockedVersion': blockedVersion,
     if (pausedByUser) 'pausedByUser': true,
+    if (learnedFromHub) 'learnedFromHub': true,
     'remoteCounts': remoteCounts,
     'ackedSeq': ackedSeq,
     'theirSeq': theirSeq,
@@ -392,6 +406,7 @@ class Peer {
         ..acceptedVersion = j['acceptedVersion'] as String?
         ..blockedVersion = j['blockedVersion'] as String?
         ..pausedByUser = j['pausedByUser'] == true
+        ..learnedFromHub = j['learnedFromHub'] == true
         ..remoteCounts = {
           for (final e in Map<String, dynamic>.from(
             j['remoteCounts'] as Map? ?? {},
@@ -407,6 +422,15 @@ class Peer {
           for (final r in j['history'] as List? ?? [])
             SyncRecord.fromJson(Map<String, dynamic>.from(r)),
         ];
+
+  /// What other members need to reach this device (never our own entry).
+  Map<String, dynamic> toMemberJson() => {
+    'deviceId': deviceId,
+    'name': name,
+    'host': host,
+    'port': port,
+    'key': key,
+  };
 }
 
 /// True if [a] should replace [b]: it is newer, or exactly as new but

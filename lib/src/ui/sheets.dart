@@ -46,19 +46,28 @@ Future<void> _openSheet(BuildContext context, Widget child) {
     SleepSheet(:final initial) => initial != null,
     _ => false,
   };
-  Widget builder(BuildContext c) => Padding(
-    padding: EdgeInsets.fromLTRB(
-      20,
-      0,
-      20,
-      20 +
-          max(
-            MediaQuery.viewInsetsOf(c).bottom,
-            MediaQuery.viewPaddingOf(c).bottom,
-          ),
-    ),
-    child: SingleChildScrollView(child: child),
-  );
+  // The sheet may never be taller than the window (minus a small gap at the
+  // top): the content scrolls inside it instead. This matters on short desktop
+  // windows, large text and with the keyboard open.
+  Widget builder(BuildContext c) {
+    final media = MediaQuery.of(c);
+    final maxHeight = max(200.0, media.size.height - media.padding.top - 16);
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          0,
+          20,
+          20 + max(media.viewInsets.bottom, media.viewPadding.bottom),
+        ),
+        child: _SheetScroll(child: child),
+      ),
+    );
+  }
+
+  // Wide windows get a centred dialog: always fully visible, scrolls inside.
+  if (Desktop.of(context)) return showSheetDialog(context, child);
   if (editing) {
     final navigator = Navigator.of(context);
     return Navigator.of(context).push<void>(
@@ -78,8 +87,81 @@ Future<void> _openSheet(BuildContext context, Widget child) {
     isScrollControlled: true,
     showDragHandle: true,
     useSafeArea: true,
+    useRootNavigator: true,
     constraints: const BoxConstraints(maxWidth: 560),
     builder: builder,
+  );
+}
+
+/// Shows [child] (a sheet's content) as a centred dialog, as sheets are shown
+/// on desktop. With [scroll] the content is padded and scrolls inside the
+/// dialog; without, [child] handles that itself. Taps outside use maybePop,
+/// so editors can still ask before discarding changes.
+Future<void> showSheetDialog(
+  BuildContext context,
+  Widget child, {
+  bool scroll = true,
+  double maxWidth = 560,
+}) => showDialog<void>(
+  context: context,
+  useRootNavigator: true,
+  builder: (c) {
+    final size = MediaQuery.sizeOf(c);
+    return Dialog(
+      clipBehavior: Clip.antiAlias,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: maxWidth,
+          maxHeight: max(200.0, size.height - 48),
+        ),
+        child: scroll
+            ? _SheetScroll(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
+                  child: child,
+                ),
+              )
+            : child,
+      ),
+    );
+  },
+);
+
+/// A bottom sheet on the phone, a centred dialog on desktop, for content that
+/// pads and scrolls itself.
+Future<void> showAdaptiveSheet(BuildContext context, WidgetBuilder builder) =>
+    Desktop.of(context)
+    ? showSheetDialog(context, Builder(builder: builder), scroll: false)
+    : showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        builder: builder,
+      );
+
+/// Scrolls the sheet's content, with a scrollbar that also works with a mouse.
+class _SheetScroll extends StatefulWidget {
+  const _SheetScroll({required this.child});
+  final Widget child;
+
+  @override
+  State<_SheetScroll> createState() => _SheetScrollState();
+}
+
+class _SheetScrollState extends State<_SheetScroll> {
+  final _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scrollbar(
+    controller: _controller,
+    child: SingleChildScrollView(controller: _controller, child: widget.child),
   );
 }
 
@@ -156,29 +238,31 @@ class _EditGuardState extends State<_EditGuard> {
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onVerticalDragEnd: (details) {
-            if ((details.primaryVelocity ?? 0) > 0) {
-              Navigator.maybePop(context);
-            }
-          },
-          child: SizedBox(
-            height: 36,
-            width: double.infinity,
-            child: Center(
-              child: Container(
-                width: 32,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant
-                      .withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(2),
+        // Dialogs on desktop have no drag handle.
+        if (!Desktop.of(context))
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onVerticalDragEnd: (details) {
+              if ((details.primaryVelocity ?? 0) > 0) {
+                Navigator.maybePop(context);
+              }
+            },
+            child: SizedBox(
+              height: 36,
+              width: double.infinity,
+              child: Center(
+                child: Container(
+                  width: 32,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant
+                        .withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
         widget.child,
       ],
     ),

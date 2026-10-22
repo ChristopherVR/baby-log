@@ -32,7 +32,7 @@ class SyncService : Service() {
         val channelId = "background_sync"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(channelId, "Background sync", NotificationManager.IMPORTANCE_MIN)
-            channel.description = "Shown while Baby Log keeps your devices in sync"
+            channel.description = "Shown while Nestling keeps your devices in sync"
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
         val open = PendingIntent.getActivity(
@@ -43,7 +43,7 @@ class SyncService : Service() {
         else Notification.Builder(this)
         val notification = builder
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("Baby Log")
+            .setContentTitle("Nestling")
             .setContentText("Sharing your log over Wi-Fi")
             .setOngoing(true)
             .setContentIntent(open)

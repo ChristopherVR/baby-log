@@ -70,8 +70,59 @@ class _HomePageState extends State<HomePage> {
     final today = app.entriesOn(DateTime.now());
 
     final overview = <Widget>[
+      if (app.timerStart != null) ...[
+        _TimerCard(app: app),
+        const SizedBox(height: 16),
+      ],
+      _LastFeedCard(app: app),
+      const SizedBox(height: 16),
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: ActionTile(
+              glyph: Glyphs.feed,
+              label: 'Feed',
+              hint: app.suggestedSide != null
+                  ? 'Next: ${sideLabel(app.suggestedSide!)}'
+                  : 'Log a feed',
+              soft: Baby.feedSoft,
+              strong: Baby.feed,
+              onTap: () => showSheet(context, const FeedSheet()),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: ActionTile(
+              glyph: Glyphs.nappy,
+              label: 'Nappy',
+              hint: app.lastNappy == null
+                  ? 'Pee or poo'
+                  : ago(app.lastNappy!.time),
+              soft: Baby.nappySoft,
+              strong: Baby.nappy,
+              onTap: () => showSheet(context, const NappySheet()),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: ActionTile(
+              glyph: Glyphs.pill,
+              label: 'Pill',
+              hint: _pillHint(app),
+              soft: Baby.pillSoft,
+              strong: Baby.pill,
+              onTap: () => _pillTap(context, app),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 16),
+      _LastNappyCard(app: app),
+      const SizedBox(height: 16),
       Card(
         color: Baby.pillSoft,
+        clipBehavior: Clip.antiAlias,
         child: LayoutBuilder(
           builder: (context, constraints) {
             final stacked =
@@ -114,63 +165,9 @@ class _HomePageState extends State<HomePage> {
           },
         ),
       ),
-      const SizedBox(height: 14),
+      const SizedBox(height: 16),
       RoutinePreview(onOpen: widget.onSeeRoutines),
-      const SizedBox(height: 14),
-      if (app.timerStart != null) ...[
-        _TimerCard(app: app),
-        const SizedBox(height: 14),
-      ],
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: ActionTile(
-              glyph: Glyphs.feed,
-              label: 'Feed',
-              hint: app.suggestedSide != null
-                  ? 'Next: ${sideLabel(app.suggestedSide!)}'
-                  : 'Log a feed',
-              soft: Baby.feedSoft,
-              strong: Baby.feed,
-              onTap: () => showSheet(context, const FeedSheet()),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: ActionTile(
-              glyph: Glyphs.nappy,
-              label: 'Nappy',
-              hint: app.lastNappy == null
-                  ? 'Pee or poo'
-                  : ago(app.lastNappy!.time),
-              soft: Baby.nappySoft,
-              strong: Baby.nappy,
-              onTap: () => showSheet(context, const NappySheet()),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: ActionTile(
-              glyph: Glyphs.pill,
-              label: 'Pill',
-              hint: _pillHint(app),
-              soft: Baby.pillSoft,
-              strong: Baby.pill,
-              onTap: () => _pillTap(context, app),
-            ),
-          ),
-        ],
-      ),
-      const SizedBox(height: 14),
-      Row(
-        children: [
-          Expanded(child: _LastFeedCard(app: app)),
-          const SizedBox(width: 10),
-          Expanded(child: _LastNappyCard(app: app)),
-        ],
-      ),
-      const SizedBox(height: 10),
+      const SizedBox(height: 16),
       _ReminderRow(app: app),
     ];
     final activity = <Widget>[
@@ -193,7 +190,7 @@ class _HomePageState extends State<HomePage> {
       if (today.isEmpty)
         Card(
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(28),
             child: LText(
               'Nothing logged yet today.\nTap Feed, Nappy or Pill above to start.',
               textAlign: TextAlign.center,
@@ -216,6 +213,9 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     ];
+    if (Desktop.of(context)) {
+      return _desktop(context, app, today, activity);
+    }
     return LayoutBuilder(
       builder: (context, constraints) => PullToSync(
         child: ListView(
@@ -223,11 +223,12 @@ class _HomePageState extends State<HomePage> {
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(4, 0, 4, 16),
+              padding: const EdgeInsets.fromLTRB(6, 0, 6, 16),
               child: LText(
                 '${greeting()} · ${DateFormat('EEEE d MMMM').format(DateTime.now())}',
                 style: TextStyle(
                   color: Baby.muted,
+                  fontSize: 15,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -259,6 +260,173 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
+    );
+  }
+
+  void _napTap(BuildContext context, AppState app) {
+    final nap = app.activeSleep;
+    if (nap == null) {
+      showSheet(context, const SleepSheet());
+    } else {
+      app.endSleep(nap);
+    }
+  }
+
+  /// Desktop: status cards and quick actions in grids, then today's log
+  /// beside the routines and reminder.
+  Widget _desktop(
+    BuildContext context,
+    AppState app,
+    List<Entry> today,
+    List<Widget> activity,
+  ) {
+    final nap = app.activeSleep;
+    final next = app.meds.isEmpty
+        ? null
+        : app.meds
+              .map((m) => (m, app.nextDose(m)))
+              .reduce((a, b) => a.$2.isBefore(b.$2) ? a : b);
+    final now = DateTime.now();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 760;
+        final columns = constraints.maxWidth >= 980 ? 4 : 2;
+        Widget grid(List<Widget> cells) => Column(
+          children: [
+            for (var i = 0; i < cells.length; i += columns) ...[
+              if (i > 0) const SizedBox(height: 12),
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var j = i; j < i + columns; j++) ...[
+                      if (j > i) const SizedBox(width: 12),
+                      Expanded(
+                        child: j < cells.length
+                            ? cells[j]
+                            : const SizedBox.shrink(),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ],
+        );
+        final stats = [
+          _LastFeedCard(app: app),
+          _LastNappyCard(app: app),
+          _StatCard(
+            title: nap == null ? 'SLEEP' : 'SLEEPING',
+            value: nap == null ? 'Awake' : _agoShort(nap.time),
+            detail: nap == null
+                ? 'Put down for a nap'
+                : 'Since ${hm(nap.time)}',
+            color: Baby.pill,
+            soft: Baby.pillSoft,
+            glyph: Glyphs.sleep,
+            onTap: () => _napTap(context, app),
+          ),
+          _StatCard(
+            title: 'NEXT PILL',
+            value: next == null
+                ? 'None'
+                : next.$2.isBefore(now)
+                ? 'Due now'
+                : hm(next.$2),
+            detail: next == null ? 'Add pills' : next.$1.name,
+            color: Baby.pill,
+            soft: Baby.pillSoft,
+            glyph: Glyphs.pill,
+            onTap: () => _pillTap(context, app),
+          ),
+        ];
+        final actions = [
+          ActionTile(
+            glyph: Glyphs.feed,
+            label: 'Feed',
+            hint: app.suggestedSide != null
+                ? 'Next: ${sideLabel(app.suggestedSide!)}'
+                : 'Log a feed',
+            soft: Baby.feedSoft,
+            strong: Baby.feed,
+            onTap: () => showSheet(context, const FeedSheet()),
+          ),
+          ActionTile(
+            glyph: Glyphs.nappy,
+            label: 'Nappy',
+            hint: 'Pee or poo',
+            soft: Baby.nappySoft,
+            strong: Baby.nappy,
+            onTap: () => showSheet(context, const NappySheet()),
+          ),
+          ActionTile(
+            glyph: Glyphs.pill,
+            label: 'Pill',
+            hint: _pillHint(app),
+            soft: Baby.pillSoft,
+            strong: Baby.pill,
+            onTap: () => _pillTap(context, app),
+          ),
+          ActionTile(
+            glyph: Glyphs.sleep,
+            label: nap == null ? 'Start nap' : 'End nap',
+            hint: nap == null
+                ? 'Put down for a nap'
+                : 'Sleeping · ${duration(now.difference(nap.time))}',
+            soft: Baby.pillSoft,
+            strong: Baby.pill,
+            onTap: () => _napTap(context, app),
+          ),
+        ];
+        final side = <Widget>[
+          RoutinePreview(onOpen: widget.onSeeRoutines),
+          const SizedBox(height: 12),
+          _ReminderRow(app: app),
+        ];
+        return PullToSync(
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+            children: [
+              if (app.timerStart != null) ...[
+                _TimerCard(app: app),
+                const SizedBox(height: 16),
+              ],
+              grid(stats),
+              const SizedBox(height: 12),
+              grid(actions),
+              if (wide)
+                Row(
+                  key: const ValueKey('today-columns'),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: activity,
+                      ),
+                    ),
+                    const SizedBox(width: 20),
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [const SectionTitle('Plan'), ...side],
+                      ),
+                    ),
+                  ],
+                )
+              else ...[
+                ...activity,
+                const SizedBox(height: 8),
+                ...side,
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -307,9 +475,8 @@ class _TimerCardState extends State<_TimerCard> {
     final ss = (elapsed.inSeconds % 60).toString().padLeft(2, '0');
     return Card(
       color: Baby.feedSoft,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(20),
         child: Column(
           children: [
             LText(
@@ -321,7 +488,7 @@ class _TimerCardState extends State<_TimerCard> {
             LText(
               '$mm:$ss',
               style: const TextStyle(
-                fontSize: 52,
+                fontSize: 60,
                 fontWeight: FontWeight.w800,
                 fontFeatures: [FontFeature.tabularFigures()],
               ),
@@ -433,43 +600,149 @@ class _StatCard extends StatelessWidget {
     required this.value,
     required this.detail,
     required this.color,
+    required this.soft,
+    this.glyph,
+    this.hero = false,
     this.onTap,
   });
   final String title;
   final String value;
   final String detail;
   final Color color;
+  final Color soft;
+  final Glyph? glyph;
+  final bool hero;
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => Card(
+  Widget build(BuildContext context) =>
+      Desktop.of(context) ? _desktop(context) : _phone(context);
+
+  /// Neutral bordered card; the kind's colour is the accent.
+  Widget _desktop(BuildContext context) => Card(
     clipBehavior: Clip.antiAlias,
     child: InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Row(
+              children: [
+                Expanded(
+                  child: LText(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: Baby.muted,
+                      letterSpacing: 0.4,
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ),
+                if (glyph != null)
+                  IconBubble(
+                    glyph: glyph!,
+                    color: soft,
+                    iconColor: color,
+                    size: 30,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
             LText(
-              title,
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
+                fontSize: hero ? 30 : 26,
+                height: 1.1,
                 fontWeight: FontWeight.w800,
-                color: color,
-                fontSize: 13,
+                letterSpacing: -0.5,
+                color: hero ? color : Baby.ink,
               ),
             ),
             const SizedBox(height: 4),
             LText(
-              value,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
-            ),
-            LText(
               detail,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: Baby.muted, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                fontSize: 12.5,
+                color: Baby.muted,
+                fontWeight: FontWeight.w600,
+              ),
             ),
+          ],
+        ),
+      ),
+    ),
+  );
+
+  Widget _phone(BuildContext context) => Card(
+    color: soft,
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, hero ? 20 : 16, 20, hero ? 20 : 16),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  LText(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: color,
+                      letterSpacing: 0.4,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    switchInCurve: Curves.easeOutCubic,
+                    child: Align(
+                      key: ValueKey(value),
+                      alignment: Alignment.centerLeft,
+                      child: LText(
+                        value,
+                        style: TextStyle(
+                          fontSize: hero ? 44 : 26,
+                          height: 1.1,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  LText(
+                    detail,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Baby.muted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (glyph != null) ...[
+              const SizedBox(width: 12),
+              IconBubble(
+                glyph: glyph!,
+                color: Baby.card,
+                iconColor: color,
+                size: hero ? 56 : 48,
+              ),
+            ],
           ],
         ),
       ),
@@ -492,6 +765,9 @@ class _LastFeedCard extends StatelessWidget {
     return _StatCard(
       title: 'SINCE LAST FEED',
       color: Baby.feed,
+      soft: Baby.feedSoft,
+      hero: true,
+      glyph: last?.side == FeedSide.bottle ? Glyphs.bottle : Glyphs.feed,
       value: last == null ? 'Not yet' : _agoShort(last.time),
       detail: last == null
           ? 'No feeds logged'
@@ -515,6 +791,8 @@ class _LastNappyCard extends StatelessWidget {
     return _StatCard(
       title: 'SINCE LAST NAPPY',
       color: Baby.nappy,
+      soft: Baby.nappySoft,
+      glyph: Glyphs.nappy,
       value: last == null ? 'Not yet' : _agoShort(last.time),
       detail: last == null
           ? 'No nappies logged'
@@ -542,17 +820,19 @@ class _ReminderRow extends StatelessWidget {
     } else {
       text = 'Feed was due at ${hm(at)}';
     }
+    final desktop = Desktop.of(context);
+    final radius = BorderRadius.circular(desktop ? DesktopTokens.radiusLg : 24);
     return Material(
       color: Baby.card,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Baby.line),
+        borderRadius: radius,
+        side: desktop ? BorderSide(color: Baby.border) : BorderSide.none,
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: radius,
         onTap: () => showFeedReminderSheet(context),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
           child: Row(
             children: [
               Icon(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../routines.dart';
 import 'common.dart';
+import 'sheets.dart';
 import 'theme.dart';
 
 String completionLabel(RoutineCompletion c) =>
@@ -74,7 +75,9 @@ class RoutineActions extends StatelessWidget {
 }
 
 Future<void> markRoutineDone(BuildContext context, Routine routine) =>
-    showModalBottomSheet<void>(
+    Desktop.of(context)
+    ? showSheetDialog(context, _CompletionForm(routine: routine), scroll: false)
+    : showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,

@@ -188,7 +188,7 @@ class AppUpdates extends ChangeNotifier {
       );
       message = opened == true
           ? 'Confirm the update in Android. If cancelled, tap Update to try again.'
-          : 'Allow updates from Baby Log, then return and tap Update again.';
+          : 'Allow updates from Nestling, then return and tap Update again.';
     } catch (_) {
       _downloadedVersion = null;
       message = 'Could not install the update. Please try again.';
@@ -211,7 +211,7 @@ class AppUpdates extends ChangeNotifier {
       await _channel.invokeMethod<void>('openStore');
     } catch (_) {
       message =
-          'Could not open Google Play. Open the Play Store to update Baby Log.';
+          'Could not open Google Play. Open the Play Store to update Nestling.';
       notifyListeners();
     }
   }

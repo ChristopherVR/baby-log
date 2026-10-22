@@ -7,8 +7,12 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../background.dart';
 import '../store.dart';
 import '../sync.dart';
+import '../routines.dart';
+import 'baby_photo.dart';
 import 'common.dart';
+import 'growth_page.dart';
 import 'data_transfer.dart';
+import 'hub_page.dart';
 import 'peer_page.dart';
 import 'qr_sync_page.dart';
 import 'sheets.dart';
@@ -30,7 +34,8 @@ String appearanceLabel(String a) => switch (a) {
   _ => 'Light',
 };
 
-/// Small status pill in the app bar: shows whether the partner's device is in sync.
+/// Small status pill in the app bar: shows whether the hub's devices are in sync.
+/// Tapping it opens the hub view with every device's status.
 class SyncChip extends StatelessWidget {
   const SyncChip({super.key, this.compact = false});
   final bool compact;
@@ -39,7 +44,7 @@ class SyncChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
     final (Color color, String label) = app.peers.isEmpty
-        ? (Baby.primary, 'Pair partner')
+        ? (Baby.primary, 'Share')
         : app.syncing
         ? (Baby.primary, 'Syncing')
         : app.syncPausedForVersion
@@ -55,7 +60,7 @@ class SyncChip extends StatelessWidget {
           color: color,
           size: app.peers.isEmpty ? 22 : 12,
         ),
-        onPressed: () => openSettings(context),
+        onPressed: () => openHub(context),
       );
     }
     return Padding(
@@ -67,7 +72,7 @@ class SyncChip extends StatelessWidget {
           color: color,
         ),
         label: LText(label),
-        onPressed: () => openSettings(context),
+        onPressed: () => openHub(context),
       ),
     );
   }
@@ -239,18 +244,24 @@ class FeedReminderOptions extends StatelessWidget {
 
 Future<void> showFeedReminderSheet(BuildContext context) => showSheet(
   context,
-  Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      SheetHeader(
-        title: 'Feed reminder',
-        glyph: Glyphs.alarm,
-        soft: Baby.feedSoft,
-        strong: Baby.feed,
-      ),
-      const FeedReminderOptions(),
-      const SizedBox(height: 8),
-    ],
+  Builder(
+    builder: (context) {
+      final name = AppScope.of(context).babyName;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SheetHeader(
+            title: 'Feed reminder',
+            subtitle: name.isEmpty ? null : 'For $name',
+            glyph: Glyphs.alarm,
+            soft: Baby.feedSoft,
+            strong: Baby.feed,
+          ),
+          const FeedReminderOptions(),
+          const SizedBox(height: 8),
+        ],
+      );
+    },
   ),
 );
 
@@ -262,21 +273,81 @@ Future<void> _showAppearanceSheet(BuildContext context) => showSheet(
       SheetHeader(title: 'Appearance', glyph: Glyphs.dark),
       const AppearancePicker(),
       const SizedBox(height: 16),
-      const LText('The app switches to dark from 6 pm to 6 am.'),
+      const NightLightSwitch(),
       const SizedBox(height: 8),
     ],
   ),
 );
 
+/// Night light: a dimmer, warmer version of the light theme from 6 pm to 6 am.
+/// It is not dark mode, so the text says so.
+class NightLightSwitch extends StatelessWidget {
+  const NightLightSwitch({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final app = AppScope.of(context);
+    return Card(
+      child: SwitchListTile(
+        contentPadding: const EdgeInsets.fromLTRB(16, 6, 12, 6),
+        secondary: const _Badge(Icons.nightlight_round),
+        title: const LText(
+          'Night light',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: LText(
+            'Dims the colours from 6 pm to 6 am so the screen is gentle in a dark room.\n'
+            'It is a softer light theme, not dark mode. Choose Dark above for dark all day.',
+            style: TextStyle(color: Baby.muted, fontWeight: FontWeight.w600),
+          ),
+        ),
+        value: app.nightLight,
+        onChanged: app.setNightLight,
+      ),
+    );
+  }
+}
+
+/// Round tinted icon badge used on settings rows.
+class _Badge extends StatelessWidget {
+  const _Badge(this.icon, {this.tone});
+  final IconData icon;
+
+  /// 0 purple (default), 1 orange, 2 green, 3 yellow, 4 brown.
+  final int? tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final (bg, fg) = switch (tone) {
+      1 => (Baby.feedSoft, Baby.feed),
+      2 => (Baby.nappySoft, Baby.nappy),
+      3 => (Baby.peeSoft, Baby.pee),
+      4 => (Baby.pooSoft, Baby.poo),
+      _ => (Baby.pillSoft, Baby.primary),
+    };
+    return IconBubble(
+      glyph: (s, c) => Icon(icon, size: s, color: c),
+      color: bg,
+      iconColor: fg,
+      size: 40,
+    );
+  }
+}
+
 class SettingsPage extends StatefulWidget {
-  const SettingsPage({super.key});
+  const SettingsPage({super.key, this.initialQuery = ''});
+
+  /// Text already in the search box, e.g. when opened from the global search.
+  final String initialQuery;
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  final _search = TextEditingController();
+  late final _search = TextEditingController(text: widget.initialQuery);
 
   @override
   void dispose() {
@@ -325,25 +396,36 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
     ]);
     addSection(
-      'Baby',
+      'Babies',
       [
+        for (final baby in app.babies)
+          (
+            terms: [baby.name, 'Babies', 'Baby profile', 'Photo', 'Birthday'],
+            child: _BabyTile(baby: baby),
+          ),
         (
-          terms: ["Baby's name", app.babyName],
+          terms: ['Add a baby', 'Another baby', 'Twins'],
           child: _Tile(
-            icon: Icons.child_care_rounded,
-            title: 'Baby\'s name',
-            value: app.babyName.isEmpty ? 'Not set' : app.babyName,
-            onTap: () async {
-              final name = await _ask(
-                context,
-                'Baby\'s name',
-                app.babyName,
-                'e.g. Emma',
-              );
-              if (name != null) app.setBabyName(name);
-            },
+            icon: Icons.person_add_alt_1_rounded,
+            tone: 2,
+            title: 'Add a baby',
+            value: '',
+            onTap: () => _addBaby(context, app),
           ),
         ),
+      ],
+      footer: Padding(
+        padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+        child: LText(
+          'Tap a baby to change their name, birthday or photo. '
+          'The selected baby is the one you see on the other tabs.',
+          style: TextStyle(color: Baby.muted, fontWeight: FontWeight.w600),
+        ),
+      ),
+    );
+    addSection(
+      'Reminders',
+      [
         (
           terms: [
             'Feed reminder',
@@ -352,11 +434,14 @@ class _SettingsPageState extends State<SettingsPage> {
             'How it rings',
             'Notification',
             'Alarm',
+            app.babyName,
             feedIntervalLabel(app.feedReminderMinutes),
           ],
           child: _Tile(
             icon: Icons.alarm_rounded,
+            tone: 1,
             title: 'Feed reminder',
+            subtitle: app.babyName.isEmpty ? null : 'For ${app.babyName}',
             value: app.feedReminderOn
                 ? '${feedIntervalLabel(app.feedReminderMinutes)}${app.feedAlarm ? ', alarm' : ''}'
                 : 'Off',
@@ -368,6 +453,7 @@ class _SettingsPageState extends State<SettingsPage> {
           child: _Tile(
             icon: Icons.medication_rounded,
             title: 'Pill reminders',
+            subtitle: 'For you, on this phone',
             value: app.pillAlarm ? 'Alarm' : 'Notification',
             onTap: () => _showPillRingSheet(context),
           ),
@@ -376,7 +462,10 @@ class _SettingsPageState extends State<SettingsPage> {
       footer: Padding(
         padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
         child: LText(
-          'Which pills remind you, and when, is set per pill on the Pills tab.',
+          app.babies.length > 1
+              ? 'The feed reminder is kept for each baby: it follows the selected baby. '
+                    'Which pills remind you, and when, is set per pill on the Pills tab.'
+              : 'Which pills remind you, and when, is set per pill on the Pills tab.',
           style: TextStyle(color: Baby.muted, fontWeight: FontWeight.w600),
         ),
       ),
@@ -386,35 +475,63 @@ class _SettingsPageState extends State<SettingsPage> {
         terms: ['Theme', 'Light', 'Dark', 'Match phone'],
         child: _Tile(
           icon: Baby.dark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+          tone: 3,
           title: 'Theme',
           value: appearanceLabel(app.appearance),
           onTap: () => _showAppearanceSheet(context),
         ),
       ),
-    ]);
-    addSection('Share with partner', [
       (
         terms: [
-          'Pair partner',
-          'Connect to the other phone',
+          'Night light',
+          'Nighttime',
+          'Dim',
+          'Dims the colours from 6 pm to 6 am so the screen is gentle in a dark room.',
+        ],
+        child: SwitchListTile(
+          contentPadding: const EdgeInsets.fromLTRB(16, 4, 12, 4),
+          secondary: const _Badge(Icons.nightlight_round),
+          title: const LText(
+            'Night light',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          subtitle: LText(
+            'Dims the colours from 6 pm to 6 am so the screen is gentle in a dark room.',
+            style: TextStyle(color: Baby.muted, fontWeight: FontWeight.w600),
+          ),
+          value: app.nightLight,
+          onChanged: app.setNightLight,
+        ),
+      ),
+    ]);
+    addSection('Family hub', [
+      (
+        terms: [
+          'Family hub',
+          'Devices sharing this log',
+          'Add a device',
+          'Sync details',
+          'This device',
+          'Everyone in the hub sees the same log',
+          'Pair',
+          'Share',
           'Scan code',
           'Type code',
           'Address',
           'Code',
           'Wi-Fi',
           'Sync by QR code',
+          for (final peer in app.peers) ...[peer.name, peer.host],
         ],
-        child: const PairCard(),
+        child: const HubSummary(),
       ),
       (
         terms: [
-          'Paired devices',
           'Sync now',
           'Sync automatically',
           'Keep syncing when closed',
           'Allow background use',
           'After every change and every minute',
-          for (final peer in app.peers) ...[peer.name, peer.host],
         ],
         child: const Padding(
           padding: EdgeInsets.only(top: 10),
@@ -429,6 +546,7 @@ class _SettingsPageState extends State<SettingsPage> {
           terms: ['Export backup', 'History', 'spreadsheet'],
           child: _Tile(
             icon: Icons.save_alt_rounded,
+            tone: 2,
             title: 'Export backup',
             value: '',
             onTap: () => exportBackupFile(context),
@@ -438,6 +556,7 @@ class _SettingsPageState extends State<SettingsPage> {
           terms: ['Import backup', 'Your saved data could not be read'],
           child: _Tile(
             icon: Icons.upload_file_rounded,
+            tone: 2,
             title: 'Import backup',
             value: '',
             onTap: () => importBackupFile(context),
@@ -462,15 +581,10 @@ class _SettingsPageState extends State<SettingsPage> {
               : Icons.computer_rounded,
           title: 'Device name',
           value: app.deviceName,
-          onTap: () async {
-            final name = await _ask(
-              context,
-              'Device name',
-              app.deviceName,
-              'e.g. Mom\'s phone',
-            );
-            if (name != null) app.setDeviceName(name);
-          },
+          subtitle: app.deviceNameCustom
+              ? 'A name you chose'
+              : 'Set by this device',
+          onTap: () => _editDeviceName(context, app),
         ),
       ),
       (
@@ -483,6 +597,7 @@ class _SettingsPageState extends State<SettingsPage> {
         ],
         child: _Tile(
           icon: Icons.info_outline_rounded,
+          tone: 2,
           title: 'App version',
           value: AppState.appVersion,
           onTap: () => showAppUpdates(context),
@@ -492,6 +607,7 @@ class _SettingsPageState extends State<SettingsPage> {
         terms: ['Run first-time setup again', 'Welcome'],
         child: _Tile(
           icon: Icons.restart_alt_rounded,
+          tone: 4,
           title: 'Run first-time setup again',
           value: '',
           onTap: () {
@@ -558,6 +674,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                         ),
                       ),
+                    if (_search.text.trim().isEmpty) const _Summary(),
                     ...sections,
                     if (sections.isEmpty)
                       const Padding(
@@ -584,28 +701,295 @@ class _Tile extends StatelessWidget {
     required this.title,
     required this.value,
     required this.onTap,
+    this.subtitle,
+    this.tone,
   });
   final IconData icon;
   final String title;
   final String value;
+  final String? subtitle;
+  final int? tone;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) => ListTile(
-    leading: Icon(icon, color: Baby.primary),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+    leading: _Badge(icon, tone: tone),
     title: LText(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+    subtitle: subtitle == null
+        ? null
+        : LText(
+            subtitle!,
+            style: TextStyle(color: Baby.muted, fontWeight: FontWeight.w600),
+          ),
     trailing: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        LText(
-          value,
-          style: TextStyle(color: Baby.muted, fontWeight: FontWeight.w600),
-        ),
+        if (value.isNotEmpty)
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 140),
+            child: LText(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: Baby.muted, fontWeight: FontWeight.w600),
+            ),
+          ),
         Icon(Icons.chevron_right_rounded, color: Baby.muted),
       ],
     ),
     onTap: onTap,
   );
+}
+
+/// Friendly summary at the top: baby, this device and how syncing is going.
+class _Summary extends StatelessWidget {
+  const _Summary();
+
+  @override
+  Widget build(BuildContext context) {
+    final app = AppScope.of(context);
+    final status = app.peers.isEmpty
+        ? 'Not paired yet'
+        : app.syncing
+        ? 'Syncing'
+        : app.syncPausedForVersion
+        ? 'Sync paused'
+        : app.syncHasError
+        ? 'Not synced'
+        : app.lastSync == null
+        ? 'Paired'
+        : 'Synced ${ago(app.lastSync!)}';
+    final ok =
+        app.peers.isNotEmpty && !app.syncPausedForVersion && !app.syncHasError;
+    return Padding(
+      padding: const EdgeInsets.only(top: 12, bottom: 4),
+      child: Card(
+        color: Baby.pillSoft,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Semantics(
+                button: true,
+                label: tr('Change photo'),
+                child: Tooltip(
+                  message: tr('Change photo'),
+                  child: InkResponse(
+                    radius: 40,
+                    onTap: () async {
+                      final photo = await pickBabyPhoto(context);
+                      if (photo == null || !context.mounted) return;
+                      app.saveBabyProfile(
+                        name: app.activeBaby.name,
+                        dateOfBirth: app.activeBaby.dateOfBirth,
+                        photo: photo,
+                      );
+                    },
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        BabyPhoto(photo: app.activeBaby.photo, size: 56),
+                        Positioned(
+                          right: -4,
+                          bottom: -4,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Baby.primary,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Baby.pillSoft,
+                                width: 2,
+                              ),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: Icon(
+                                Icons.photo_camera_rounded,
+                                size: 12,
+                                color: Baby.onPrimary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => editBabyProfile(context),
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: LText.raw(
+                              app.babyName.isEmpty
+                                  ? tr('Nestling')
+                                  : app.babyName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Icon(
+                            Icons.edit_outlined,
+                            size: 16,
+                            color: Baby.muted,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    LText(
+                      app.deviceName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Baby.muted,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(
+                          ok ? Icons.check_circle_rounded : Icons.circle,
+                          size: ok ? 16 : 10,
+                          color: ok
+                              ? Baby.ok
+                              : app.peers.isEmpty
+                              ? Baby.muted
+                              : Baby.warn,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: LText(
+                            status,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Device name: starts as the device's own name; typing replaces it, and a
+/// button goes back to the device's own name.
+Future<void> _editDeviceName(BuildContext context, AppState app) async {
+  final c = TextEditingController(text: app.deviceName);
+  final result = await showDialog<String>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const LText('Device name'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: c,
+            autofocus: true,
+            textCapitalization: TextCapitalization.words,
+            decoration: const LInputDecoration(
+              hintText: 'Type a name your partner will recognise',
+            ),
+            onSubmitted: (v) => Navigator.pop(ctx, v),
+          ),
+          if (app.deviceNameCustom) ...[
+            const SizedBox(height: 8),
+            TextButton.icon(
+              icon: const Icon(Icons.restart_alt_rounded),
+              label: const LText("Use this device's own name"),
+              onPressed: () => Navigator.pop(ctx, ''),
+            ),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const LText('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, c.text),
+          child: const LText('Save'),
+        ),
+      ],
+    ),
+  );
+  if (result == null) return;
+  if (result.trim().isEmpty) {
+    await app.useDeviceOwnName();
+  } else if (result.trim() != app.deviceName) {
+    app.setDeviceName(result.trim());
+  }
+}
+
+/// One baby in the Babies list: photo, name, age. Tap to edit the profile; the
+/// trailing control shows or picks which baby the app is following.
+class _BabyTile extends StatelessWidget {
+  const _BabyTile({required this.baby});
+  final BabyProfile baby;
+
+  @override
+  Widget build(BuildContext context) {
+    final app = AppScope.of(context);
+    final active = baby.id == app.activeBabyId;
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      leading: BabyPhoto(photo: baby.photo, size: 44),
+      title: LText.raw(
+        baby.name.isEmpty ? tr('Baby') : baby.name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontWeight: FontWeight.w700),
+      ),
+      subtitle: LText.raw(
+        '${babyAge(baby)}${active ? ' · ${tr('Selected')}' : ''}',
+        style: TextStyle(
+          color: active ? Baby.primary : Baby.muted,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      trailing: active
+          ? Icon(Icons.check_circle_rounded, color: Baby.primary)
+          : TextButton(
+              onPressed: () {
+                if (!app.selectBaby(baby.id)) {
+                  showMessage(
+                    context,
+                    'Save or stop the feed timer before switching babies.',
+                  );
+                }
+              },
+              child: const LText('Select'),
+            ),
+      onTap: () => editBabyProfile(context, baby),
+    );
+  }
+}
+
+Future<void> _addBaby(BuildContext context, AppState app) async {
+  final name = await _ask(context, 'Add a baby', '', 'e.g. Emma');
+  if (name == null || name.trim().isEmpty) return;
+  app.addBaby(name);
 }
 
 Future<String?> _ask(
@@ -655,8 +1039,9 @@ class PairCard extends StatelessWidget {
         child: Column(
           children: [
             LText(
-              'Both phones keep the same log over your home Wi‑Fi. '
-              'On the other phone, open Settings and scan this code.',
+              'Everyone in the hub keeps the same log over your home Wi‑Fi. '
+              'On the device you are adding, open Settings and scan this code. '
+              'Add a device once and it shares with everyone else automatically.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Baby.muted, fontWeight: FontWeight.w600),
             ),
@@ -715,7 +1100,7 @@ class PairCard extends StatelessWidget {
             const Divider(),
             const SizedBox(height: 12),
             const LText(
-              'Connect to the other phone',
+              'Add a device',
               style: TextStyle(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 10),
@@ -779,12 +1164,12 @@ class PairCard extends StatelessWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const LText('Connect to the other phone'),
+        title: const LText('Add a device'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const LText(
-              'Type the address and code shown in Settings on the other phone.',
+              'Type the address and code shown on the other device (Settings, Family hub).',
             ),
             const SizedBox(height: 14),
             TextField(
@@ -840,7 +1225,7 @@ class PairCard extends StatelessWidget {
     String message;
     try {
       await app.pair(host, port, key);
-      message = 'Connected and synced';
+      message = 'Device added and synced';
     } on VersionMismatchException catch (e) {
       // Paired, but the versions differ: let the user decide.
       final peer = app.peers.where((p) => p.deviceId == e.deviceId).firstOrNull;
@@ -851,7 +1236,7 @@ class PairCard extends StatelessWidget {
       } else {
         try {
           await app.acceptVersion(peer);
-          message = 'Connected and synced';
+          message = 'Device added and synced';
         } catch (e) {
           message = 'Could not sync: $e';
         }
@@ -863,7 +1248,7 @@ class PairCard extends StatelessWidget {
   }
 }
 
-/// Paired devices and sync options.
+/// Sync options for the hub.
 class _PeersCard extends StatelessWidget {
   const _PeersCard();
 
@@ -872,45 +1257,13 @@ class _PeersCard extends StatelessWidget {
     final app = AppScope.of(context);
     return ListCard(
       children: [
-        if (app.peers.isEmpty)
-          ListTile(
-            leading: Icon(Icons.link_off_rounded, color: Baby.muted),
-            title: const LText(
-              'No partner device yet',
-              style: TextStyle(fontWeight: FontWeight.w700),
-            ),
-            subtitle: const LText('Connect once, then it syncs by itself.'),
-          ),
-        for (final p in app.peers)
-          ListTile(
-            leading: Icon(
-              p.blockedVersion != null
-                  ? Icons.pause_circle_rounded
-                  : p.lastError == null
-                  ? Icons.check_circle_rounded
-                  : Icons.sync_problem_rounded,
-              color: p.blockedVersion == null && p.lastError == null
-                  ? Baby.ok
-                  : Baby.warn,
-            ),
-            title: LText(
-              p.name.isEmpty ? p.host : p.name,
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-            subtitle: LText(
-              p.blockedVersion != null
-                  ? 'Paused: different app version. Tap to review'
-                  : p.lastError ??
-                        (p.lastSync == null
-                            ? 'Not synced yet'
-                            : 'Synced ${ago(p.lastSync!)} · tap for details'),
-            ),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: () => openPeer(context, p),
-          ),
         if (app.peers.isNotEmpty)
           ListTile(
-            leading: Icon(Icons.sync_rounded, color: Baby.primary),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 4,
+            ),
+            leading: const _Badge(Icons.sync_rounded),
             title: const LText(
               'Sync now',
               style: TextStyle(fontWeight: FontWeight.w700),
@@ -932,7 +1285,8 @@ class _PeersCard extends StatelessWidget {
                   },
           ),
         SwitchListTile(
-          secondary: Icon(Icons.autorenew_rounded, color: Baby.primary),
+          contentPadding: const EdgeInsets.fromLTRB(16, 4, 12, 4),
+          secondary: const _Badge(Icons.autorenew_rounded),
           title: const LText(
             'Sync automatically',
             style: TextStyle(fontWeight: FontWeight.w700),
@@ -943,7 +1297,8 @@ class _PeersCard extends StatelessWidget {
         ),
         if (BackgroundSync.supported)
           SwitchListTile(
-            secondary: Icon(Icons.nights_stay_rounded, color: Baby.primary),
+            contentPadding: const EdgeInsets.fromLTRB(16, 4, 12, 4),
+            secondary: const _Badge(Icons.cloud_sync_rounded),
             title: const LText(
               'Keep syncing when closed',
               style: TextStyle(fontWeight: FontWeight.w700),
@@ -956,7 +1311,17 @@ class _PeersCard extends StatelessWidget {
             app.backgroundSync &&
             !app.batteryExempt)
           ListTile(
-            leading: Icon(Icons.battery_alert_rounded, color: Baby.warn),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 4,
+            ),
+            leading: IconBubble(
+              glyph: (s, c) =>
+                  Icon(Icons.battery_alert_rounded, size: s, color: c),
+              color: Baby.peeSoft,
+              iconColor: Baby.warn,
+              size: 40,
+            ),
             title: const LText(
               'Allow background use',
               style: TextStyle(fontWeight: FontWeight.w700),
@@ -1009,7 +1374,7 @@ class _ScanPageState extends State<_ScanPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const LText('Scan partner\'s code')),
+      appBar: AppBar(title: const LText('Scan the other device\'s code')),
       body: MobileScanner(
         onDetect: (capture) {
           if (_done) return;

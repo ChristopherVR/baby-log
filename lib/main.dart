@@ -2,9 +2,12 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/intl.dart';
 
 import 'src/notifications.dart';
 import 'src/store.dart';
@@ -13,12 +16,15 @@ import 'src/ui/nighttime.dart';
 import 'src/ui/changelog_dialog.dart';
 import 'src/ui/alarm_page.dart';
 import 'src/ui/common.dart';
+import 'src/ui/desktop/desktop_shell.dart';
+import 'src/ui/global_search.dart';
 import 'src/ui/history_page.dart';
 import 'src/ui/home_page.dart';
 import 'src/ui/growth_page.dart';
 import 'src/ui/pills_page.dart';
 import 'src/ui/routines_page.dart';
 import 'src/ui/settings_page.dart';
+import 'src/ui/sheets.dart';
 import 'src/ui/setup_page.dart';
 import 'src/ui/theme.dart';
 
@@ -65,6 +71,8 @@ class BabyApp extends StatefulWidget {
 
 class _BabyAppState extends State<BabyApp> with WidgetsBindingObserver {
   late String _language;
+
+  /// Whether the night light is dimming the palette right now.
   late bool _nighttime;
   final _navigator = GlobalKey<NavigatorState>();
   Timer? _appearanceTimer;
@@ -122,7 +130,7 @@ class _BabyAppState extends State<BabyApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     _language = widget.state.language;
-    _nighttime = isNighttime(_now);
+    _nighttime = _wantDim;
     AppLanguage.use(_language);
     WidgetsBinding.instance.addObserver(this);
     widget.state.addListener(_applyAppearance);
@@ -147,6 +155,7 @@ class _BabyAppState extends State<BabyApp> with WidgetsBindingObserver {
       },
     );
     Baby.dark = _wantDark;
+    Baby.dim = _nighttime;
     _scheduleAppearance();
     if (!widget.state.startedHeadless) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _showChangelog());
@@ -165,29 +174,32 @@ class _BabyAppState extends State<BabyApp> with WidgetsBindingObserver {
   @override
   void didChangePlatformBrightness() => _applyAppearance();
 
-  bool get _wantDark =>
-      isNighttime(_now) ||
-      switch (widget.state.appearance) {
-        'dark' => true,
-        'system' =>
-          PlatformDispatcher.instance.platformBrightness == Brightness.dark,
-        _ => false,
-      };
+  bool get _wantDark => switch (widget.state.appearance) {
+    'dark' => true,
+    'system' =>
+      PlatformDispatcher.instance.platformBrightness == Brightness.dark,
+    _ => false,
+  };
+
+  /// The night light dims the light palette; dark mode needs no dimming.
+  bool get _wantDim =>
+      widget.state.nightLight && !_wantDark && isNighttime(_now);
 
   /// The palette is read directly by many widgets, so when it flips every
   /// widget is rebuilt, not just those that depend on the Theme.
   void _applyAppearance() {
     final dark = _wantDark;
-    final nighttime = isNighttime(_now);
+    final dim = _wantDim;
     if (dark == Baby.dark &&
-        nighttime == _nighttime &&
+        dim == _nighttime &&
         _language == widget.state.language) {
       return;
     }
-    _nighttime = nighttime;
+    _nighttime = dim;
     _language = widget.state.language;
     AppLanguage.use(_language);
     Baby.dark = dark;
+    Baby.dim = dim;
     void markAll(Element e) {
       e.markNeedsBuild();
       e.visitChildren(markAll);
@@ -203,26 +215,29 @@ class _BabyAppState extends State<BabyApp> with WidgetsBindingObserver {
     return AppScope(
       state: app,
       child: MaterialApp(
-        title: 'Baby Log',
+        title: 'Nestling',
         locale: Locale(app.language),
         supportedLocales: const [Locale('en'), Locale('af')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
         debugShowCheckedModeBanner: false,
         theme: babyTheme(),
         themeAnimationDuration: Duration.zero,
-        builder: (context, child) => Column(
-          children: [
-            if (_nighttime) const NighttimeNotice(),
-            Expanded(
-              child: _nighttime
-                  ? MediaQuery.removePadding(
-                      context: context,
-                      removeTop: true,
-                      child: child!,
-                    )
-                  : child!,
-            ),
-          ],
+        // Wide windows get the compact desktop theme, dialogs included.
+        builder: (context, child) => DesktopScope(
+          child: Column(
+            children: [
+              if (_nighttime) const NighttimeNotice(),
+              Expanded(
+                child: _nighttime
+                    ? MediaQuery.removePadding(
+                        context: context,
+                        removeTop: true,
+                        child: child!,
+                      )
+                    : child!,
+              ),
+            ],
+          ),
         ),
         // Lists can also be dragged with a mouse (Windows testing), e.g. pull to refresh.
         scrollBehavior: const MaterialScrollBehavior().copyWith(
@@ -249,127 +264,222 @@ class Shell extends StatefulWidget {
 
 class _ShellState extends State<Shell> {
   int tab = 0;
+  final _historyKey = GlobalKey<HistoryPageState>();
+
+  /// The tab pages keep their state when the layout switches between phone
+  /// and desktop on resize.
+  final _pagesKey = GlobalKey();
+  bool _searching = false;
+
+  void _goTo(int value) {
+    if (value == ShellTabs.history) _historyKey.currentState?.showLog();
+    if (mounted) setState(() => tab = value);
+  }
+
+  Future<void> _openSearch() async {
+    if (_searching) return;
+    _searching = true;
+    try {
+      final item = await showGlobalSearch(context);
+      if (item != null && mounted) openSearchItem(context, item, _goTo);
+    } finally {
+      _searching = false;
+    }
+  }
+
+  Map<ShortcutActivator, VoidCallback> get _shortcuts {
+    final mac = defaultTargetPlatform == TargetPlatform.macOS;
+    SingleActivator key(LogicalKeyboardKey k) =>
+        SingleActivator(k, control: !mac, meta: mac);
+    const digits = [
+      LogicalKeyboardKey.digit1,
+      LogicalKeyboardKey.digit2,
+      LogicalKeyboardKey.digit3,
+      LogicalKeyboardKey.digit4,
+      LogicalKeyboardKey.digit5,
+    ];
+    return {
+      key(LogicalKeyboardKey.keyK): _openSearch,
+      key(LogicalKeyboardKey.keyF): _openSearch,
+      for (var i = 0; i < digits.length; i++) key(digits[i]): () => _goTo(i),
+      key(LogicalKeyboardKey.comma): () => openSettings(context),
+      const SingleActivator(LogicalKeyboardKey.f5): () =>
+          refreshAndSync(context),
+    };
+  }
+
+  String _title(AppState app) => switch (tab) {
+    0 => app.babyName.isEmpty ? 'Today' : '${app.babyName}\'s day',
+    1 => 'History',
+    2 => 'Pills',
+    3 => 'Routines',
+    _ => 'Growth',
+  };
 
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
-    final title = switch (tab) {
-      0 => app.babyName.isEmpty ? 'Today' : '${app.babyName}\'s day',
-      1 => 'History',
-      2 => 'Pills',
-      3 => 'Routines',
-      _ => 'Growth',
-    };
-    const destinations = [
-      ('Today', Icons.home_outlined, Icons.home_rounded),
-      ('History', Icons.history_rounded, Icons.history_rounded),
-      ('Pills', Icons.medication_outlined, Icons.medication_rounded),
-      ('Routines', Icons.event_repeat_rounded, Icons.event_repeat_rounded),
-      ('Growth', Icons.photo_album_outlined, Icons.photo_album_rounded),
-    ];
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 840;
-        return Scaffold(
-          appBar: AppBar(
-            toolbarHeight: 64,
-            title: LText(
-              widget.profile.isEmpty ? title : '$title [${widget.profile}]',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            actions: [
-              const RefreshSyncButton(),
-              SyncChip(
-                compact:
-                    constraints.maxWidth <
-                    380 * MediaQuery.textScalerOf(context).scale(14) / 14,
-              ),
-              LIconButton(
-                tooltip: 'Settings',
-                icon: const Icon(Icons.settings_outlined),
-                onPressed: () => openSettings(context),
-              ),
-              const SizedBox(width: 4),
-            ],
+    final title = _title(app);
+    final pages = IndexedStack(
+      key: _pagesKey,
+      index: tab,
+      children: [
+        HomePage(
+          onSeeHistory: () => _goTo(ShellTabs.history),
+          onSeeRoutines: () => _goTo(ShellTabs.routines),
+        ),
+        HistoryPage(key: _historyKey),
+        const PillsPage(),
+        const RoutinesPage(),
+        const GrowthPage(),
+      ],
+    );
+    return DesktopScope(
+      child: CallbackShortcuts(
+        bindings: _shortcuts,
+        child: Focus(
+          autofocus: true,
+          child: LayoutBuilder(
+            builder: (context, constraints) =>
+                constraints.maxWidth >= Desktop.breakpoint
+                ? _desktop(context, constraints, title, pages)
+                : _phone(context, constraints, title, pages),
           ),
-          body: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (wide) ...[
-                LayoutBuilder(
-                  builder: (context, railSize) => SingleChildScrollView(
-                    child: SizedBox(
-                      height: railSize.maxHeight.clamp(460.0, double.infinity),
-                      child: NavigationRail(
-                        extended: constraints.maxWidth >= 1440,
-                        minExtendedWidth: 200,
-                        backgroundColor: Baby.card,
-                        selectedIndex: tab,
-                        onDestinationSelected: (value) =>
-                            setState(() => tab = value),
-                        labelType: constraints.maxWidth >= 1440
-                            ? NavigationRailLabelType.none
-                            : NavigationRailLabelType.all,
-                        destinations: [
-                          for (final (label, icon, selectedIcon)
-                              in destinations)
-                            NavigationRailDestination(
-                              icon: Icon(icon),
-                              selectedIcon: Icon(selectedIcon),
-                              label: LText(label),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                VerticalDivider(width: 1, color: Baby.line),
-              ],
-              Expanded(
-                // Keep the tab subtree when the rail appears/disappears on resize.
-                key: const ValueKey('shell-content'),
-                child: PageWidth(
-                  child: Column(
-                    children: [
-                      const BabyPicker(),
-                      Expanded(
-                        child: IndexedStack(
-                          index: tab,
-                          children: [
-                            HomePage(
-                              onSeeHistory: () => setState(() => tab = 1),
-                              onSeeRoutines: () => setState(() => tab = 3),
-                            ),
-                            const HistoryPage(),
-                            const PillsPage(),
-                            const RoutinesPage(),
-                            const GrowthPage(),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          bottomNavigationBar: wide
-              ? null
-              : NavigationBar(
-                  selectedIndex: tab,
-                  onDestinationSelected: (value) => setState(() => tab = value),
-                  destinations: [
-                    for (final (label, icon, selectedIcon) in destinations)
-                      NavigationDestination(
-                        icon: Icon(icon),
-                        selectedIcon: Icon(selectedIcon),
-                        label: tr(label),
-                      ),
-                  ],
-                ),
-        );
-      },
+        ),
+      ),
     );
   }
+
+  Widget _desktop(
+    BuildContext context,
+    BoxConstraints constraints,
+    String title,
+    Widget pages,
+  ) {
+    final expanded = constraints.maxWidth >= Desktop.wideSidebar;
+    final wideSearch = constraints.maxWidth >= 1000;
+    return Scaffold(
+      backgroundColor: Baby.surface,
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DesktopSidebar(
+            destinations: shellDestinations,
+            selected: tab,
+            onSelect: _goTo,
+            onSearch: _openSearch,
+            expanded: expanded,
+            profile: widget.profile,
+          ),
+          Expanded(
+            key: const ValueKey('shell-content'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                DesktopTopBar(
+                  title: title,
+                  subtitle: tab == ShellTabs.today
+                      ? '${greeting()} · ${DateFormat('EEEE d MMMM').format(DateTime.now())}'
+                      : null,
+                  actions: [
+                    if (!expanded)
+                      wideSearch
+                          ? SearchTrigger(onTap: _openSearch, width: 240)
+                          : LIconButton(
+                              tooltip: 'Search',
+                              icon: const Icon(Icons.search_rounded),
+                              onPressed: _openSearch,
+                            ),
+                    ..._pageActions(context),
+                    const RefreshSyncButton(),
+                  ],
+                ),
+                Expanded(child: PageWidth(maxWidth: 1240, child: pages)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Main action of the current page, shown in the desktop top bar.
+  List<Widget> _pageActions(BuildContext context) => switch (tab) {
+    ShellTabs.today => [
+      OutlinedButton.icon(
+        icon: const Icon(Icons.history_rounded, size: 18),
+        label: const LText('See all history'),
+        onPressed: () => _goTo(ShellTabs.history),
+      ),
+    ],
+    ShellTabs.pills => [
+      FilledButton.icon(
+        icon: const Icon(Icons.add_rounded, size: 18),
+        label: const LText('Add pill'),
+        onPressed: () => showSheet(context, const MedEditor()),
+      ),
+    ],
+    ShellTabs.routines => [
+      FilledButton.icon(
+        icon: const Icon(Icons.add_rounded, size: 18),
+        label: const LText('Add routine'),
+        onPressed: () => editRoutine(context),
+      ),
+    ],
+    _ => const [],
+  };
+
+  Widget _phone(
+    BuildContext context,
+    BoxConstraints constraints,
+    String title,
+    Widget pages,
+  ) => Scaffold(
+    appBar: AppBar(
+      toolbarHeight: 68,
+      title: LText(
+        widget.profile.isEmpty ? title : '$title [${widget.profile}]',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      actions: [
+        LIconButton(
+          tooltip: 'Search',
+          icon: const Icon(Icons.search_rounded),
+          onPressed: _openSearch,
+        ),
+        const RefreshSyncButton(),
+        SyncChip(
+          compact:
+              constraints.maxWidth <
+              420 * MediaQuery.textScalerOf(context).scale(14) / 14,
+        ),
+        LIconButton(
+          tooltip: 'Settings',
+          icon: const Icon(Icons.settings_outlined),
+          onPressed: () => openSettings(context),
+        ),
+        const SizedBox(width: 4),
+      ],
+    ),
+    body: Column(
+      key: const ValueKey('shell-content'),
+      children: [
+        const BabyPicker(),
+        Expanded(child: pages),
+      ],
+    ),
+    bottomNavigationBar: NavigationBar(
+      selectedIndex: tab,
+      onDestinationSelected: _goTo,
+      destinations: [
+        for (final d in shellDestinations)
+          NavigationDestination(
+            icon: Icon(d.icon),
+            selectedIcon: Icon(d.selectedIcon),
+            label: tr(d.label),
+          ),
+      ],
+    ),
+  );
 }

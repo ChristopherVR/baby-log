@@ -21,7 +21,7 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
-        android:label="Baby Log"
+        android:label="Nestling"
         android:usesCleartextTraffic="true"
         android:allowBackup="false"
         android:fullBackupContent="false"

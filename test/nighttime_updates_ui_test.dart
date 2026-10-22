@@ -31,7 +31,10 @@ class _Updates extends AppUpdates {
 
 void main() {
   setUp(() async => initializeDateFormatting('en'));
-  tearDown(() => Baby.dark = false);
+  tearDown(() {
+    Baby.dark = false;
+    Baby.dim = false;
+  });
 
   test('nighttime runs from 18:00 through 05:59 in local time', () {
     expect(isNighttime(DateTime(2026, 10, 17, 17, 59)), isFalse);
@@ -61,11 +64,16 @@ void main() {
       now = DateTime(2026, 10, 17, 18);
       await tester.pump(const Duration(seconds: 1));
       await tester.pumpAndSettle();
-      expect(Baby.dark, isTrue);
-      expect(find.text('Dark mode for nighttime · until 6 am'), findsOneWidget);
+      // The night light dims the light palette; it does not force dark mode.
+      expect(Baby.dark, isFalse);
+      expect(Baby.dim, isTrue);
+      expect(
+        find.text('Night light · softer colours until 6 am'),
+        findsOneWidget,
+      );
       expect(
         tester.widget<MaterialApp>(find.byType(MaterialApp)).theme!.brightness,
-        Brightness.dark,
+        Brightness.light,
       );
       expect(find.text('Nighttime'), findsNothing);
       expect(app.appearance, 'light');
@@ -74,14 +82,12 @@ void main() {
       await tester.tap(find.byTooltip('Settings'));
       await tester.pumpAndSettle();
       expect(find.byType(NighttimeNotice), findsOneWidget);
-      expect(
-        Theme.of(tester.element(find.byType(SettingsPage))).brightness,
-        Brightness.dark,
-      );
+      expect(Baby.bg, const Color(0xFFE4D8CA));
       now = DateTime(2026, 10, 18, 6);
       await tester.pump(const Duration(hours: 12));
       await tester.pumpAndSettle();
       expect(Baby.dark, isFalse);
+      expect(Baby.dim, isFalse);
       expect(find.byType(NighttimeNotice), findsNothing);
       expect(
         Theme.of(tester.element(find.byType(SettingsPage))).brightness,
@@ -98,8 +104,20 @@ void main() {
       now = DateTime(2026, 10, 18, 18);
       await tester.pump(const Duration(hours: 12));
       await tester.pumpAndSettle();
+      // Dark mode is already gentle at night: no dimming on top of it.
       expect(Baby.dark, isTrue);
-      expect(find.byType(NighttimeNotice), findsOneWidget);
+      expect(Baby.dim, isFalse);
+      expect(find.byType(NighttimeNotice), findsNothing);
+      app.setAppearance('light');
+      await tester.pumpAndSettle();
+      expect(Baby.dim, isTrue);
+      await tester.tap(find.text('Turn off'));
+      await tester.pumpAndSettle();
+      expect(app.nightLight, isFalse);
+      expect(Baby.dim, isFalse);
+      expect(find.byType(NighttimeNotice), findsNothing);
+      app.setNightLight(true);
+      app.setAppearance('dark');
       now = DateTime(2026, 10, 19, 6);
       await tester.pump(const Duration(hours: 12));
       await tester.pumpAndSettle();
@@ -122,7 +140,7 @@ void main() {
     var now = DateTime(2026, 10, 17, 23);
     await tester.pumpWidget(BabyApp(state: app, now: () => now));
     await tester.pumpAndSettle();
-    expect(Baby.dark, isTrue);
+    expect(Baby.dim, isTrue);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
@@ -131,7 +149,7 @@ void main() {
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
-    expect(Baby.dark, isFalse);
+    expect(Baby.dim, isFalse);
     app.appPaused();
     await tester.pumpWidget(const SizedBox());
   });

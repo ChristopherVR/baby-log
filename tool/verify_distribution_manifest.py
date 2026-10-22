@@ -4,12 +4,14 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ANDROID = "{http://schemas.android.com/apk/res/android}"
+# GitHub keeps the original ID so sideloaded installs update in place.
+PACKAGES = {"github": "com.babyapp.baby_app", "play": "io.github.christophervr.nestling"}
 
 
 def verify_manifest(source: str, flavor: str) -> None:
     root = ET.fromstring(source)
-    if root.get("package") != "com.babyapp.baby_app":
-        raise ValueError("Distribution must preserve the existing application ID")
+    if root.get("package") != PACKAGES[flavor]:
+        raise ValueError(f"{flavor} must use the application ID {PACKAGES[flavor]}")
     permissions = {item.get(ANDROID + "name") for item in root.findall("uses-permission")}
     installer = "android.permission.REQUEST_INSTALL_PACKAGES" in permissions
     providers = root.findall("application/provider")

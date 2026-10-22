@@ -68,6 +68,9 @@ class BabyPicker extends StatelessWidget {
   }
 }
 
+/// Asks for a name and adds a baby (it becomes the selected one).
+Future<void> showAddBaby(BuildContext context) => _babyName(context);
+
 Future<void> _babyName(BuildContext context, {bool rename = false}) async {
   final app = AppScope.of(context);
   final name = await showDialog<String>(
@@ -167,7 +170,7 @@ class RoutinesPage extends StatelessWidget {
           FilledButton.icon(
             icon: const Icon(Icons.add_rounded),
             label: const LText('Add routine'),
-            onPressed: () => _editRoutine(context),
+            onPressed: () => editRoutine(context),
           ),
           const SizedBox(height: 16),
           Align(
@@ -202,7 +205,7 @@ class RoutinesPage extends StatelessWidget {
                     const SizedBox(height: 16),
                     OutlinedButton.icon(
                       onPressed: () =>
-                          _editRoutine(context, suggested: tr('Bath time')),
+                          editRoutine(context, suggested: tr('Bath time')),
                       icon: const Icon(Icons.bathtub_outlined),
                       label: const LText('Set up bath time'),
                     ),
@@ -234,7 +237,7 @@ class RoutinesPage extends StatelessWidget {
                       trailing: LIconButton(
                         tooltip: 'Edit ${r.name}',
                         icon: const Icon(Icons.edit_outlined),
-                        onPressed: () => _editRoutine(context, initial: r),
+                        onPressed: () => editRoutine(context, initial: r),
                       ),
                     ),
                     RoutineActions(routine: r),
@@ -311,15 +314,14 @@ class RoutinePreview extends StatelessWidget {
   }
 }
 
-Future<void> _editRoutine(
+/// Opens the routine editor: a new routine, or [initial] to edit it.
+Future<void> editRoutine(
   BuildContext context, {
   Routine? initial,
   String suggested = '',
-}) => showModalBottomSheet<void>(
-  context: context,
-  isScrollControlled: true,
-  useSafeArea: true,
-  builder: (_) => _RoutineEditor(
+}) => showAdaptiveSheet(
+  context,
+  (_) => _RoutineEditor(
     initial: initial,
     suggested: suggested,
     babyId: AppScope.of(context).activeBabyId,

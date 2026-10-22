@@ -87,7 +87,7 @@ void main() {
     await tester.tap(find.text('Afrikaans'));
     await tester.pumpAndSettle();
     expect(app.language, 'af');
-    expect(find.text('Welkom by Baby Log'), findsOneWidget);
+    expect(find.text('Welkom by Nestling'), findsOneWidget);
     expect(find.text('Slaan oor'), findsOneWidget);
     expect(
       tester.widget<MaterialApp>(find.byType(MaterialApp)).locale,

@@ -38,18 +38,138 @@ String _searchText(Entry e) => _searchCache[e] ??= [
   hm(e.time),
 ].join(' ').toLowerCase();
 
+/// History screen: two tabs with separate meanings, the activity log and the
+/// charts. Both stay alive so filters survive switching.
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});
 
   @override
-  State<HistoryPage> createState() => _HistoryPageState();
+  State<HistoryPage> createState() => HistoryPageState();
 }
 
-class _HistoryPageState extends State<HistoryPage> {
+class HistoryPageState extends State<HistoryPage>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabs = TabController(length: 2, vsync: this);
+
+  /// Switches back to the activity log (used when arriving from Today).
+  void showLog() {
+    if (_tabs.index != 0) _tabs.animateTo(0);
+  }
+
+  @override
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final desktop = Desktop.of(context);
+    return Column(
+      children: [
+        Padding(
+          padding: desktop
+              ? const EdgeInsets.fromLTRB(24, 8, 24, 0)
+              : const EdgeInsets.fromLTRB(16, 4, 16, 0),
+          child: TabBar(
+            controller: _tabs,
+            isScrollable: desktop,
+            tabAlignment: desktop ? TabAlignment.start : null,
+            labelColor: Baby.primary,
+            unselectedLabelColor: Baby.muted,
+            indicatorColor: Baby.primary,
+            labelStyle: const TextStyle(fontWeight: FontWeight.w800),
+            dividerColor: desktop ? Baby.border : Baby.line,
+            tabs: desktop
+                ? const [
+                    Tab(
+                      height: 40,
+                      child: Row(
+                        children: [
+                          Icon(Icons.list_alt_rounded, size: 18),
+                          SizedBox(width: 8),
+                          LText('Activity log', maxLines: 1),
+                        ],
+                      ),
+                    ),
+                    Tab(
+                      height: 40,
+                      child: Row(
+                        children: [
+                          Icon(Icons.bar_chart_rounded, size: 18),
+                          SizedBox(width: 8),
+                          LText('Charts', maxLines: 1),
+                        ],
+                      ),
+                    ),
+                  ]
+                : const [
+                    Tab(
+                      icon: Icon(Icons.list_alt_rounded),
+                      child: LText('Activity log', maxLines: 1),
+                    ),
+                    Tab(
+                      icon: Icon(Icons.bar_chart_rounded),
+                      child: LText('Charts', maxLines: 1),
+                    ),
+                  ],
+          ),
+        ),
+        Expanded(
+          child: TabBarView(
+            controller: _tabs,
+            children: const [_ActivityLog(), _ChartsTab()],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ChartsTab extends StatefulWidget {
+  const _ChartsTab();
+
+  @override
+  State<_ChartsTab> createState() => _ChartsTabState();
+}
+
+class _ChartsTabState extends State<_ChartsTab>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return PullToSync(
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: Desktop.of(context)
+            ? const EdgeInsets.fromLTRB(24, 16, 24, 32)
+            : const EdgeInsets.fromLTRB(16, 0, 16, 32),
+        children: const [HistoryCharts()],
+      ),
+    );
+  }
+}
+
+class _ActivityLog extends StatefulWidget {
+  const _ActivityLog();
+
+  @override
+  State<_ActivityLog> createState() => _ActivityLogState();
+}
+
+class _ActivityLogState extends State<_ActivityLog>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final _search = TextEditingController();
   EntryType? filter;
   Grouping grouping = Grouping.day;
-  HistoryPeriod period = const HistoryPeriod();
+  HistoryPeriod period = HistoryPeriod.recent(DateTime.now(), 7);
+  bool moreOptions = false;
 
   @override
   void dispose() {
@@ -135,6 +255,7 @@ class _HistoryPageState extends State<HistoryPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final app = AppScope.of(context);
     final multiDay = grouping != Grouping.day;
 
@@ -162,53 +283,76 @@ class _HistoryPageState extends State<HistoryPage> {
     final shown = _cachedShown;
     final rows = _cachedRows;
 
-    return PullToSync(
-      child: ListView.builder(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-        itemCount: rows.length + 1,
-        itemBuilder: (context, i) {
-          if (i == 0) return _controls(context, shown);
-          final row = rows[i - 1];
-          if (row is (String, List<Entry>)) {
-            return SectionTitle(row.$1, trailing: _summary(row.$2));
-          }
-          final (e, first, last) = row as (Entry, bool, bool);
-          final radius = BorderRadius.vertical(
-            top: first ? const Radius.circular(20) : Radius.zero,
-            bottom: last ? const Radius.circular(20) : Radius.zero,
-          );
-          return Material(
-            color: Baby.card,
-            shape: RoundedRectangleBorder(borderRadius: radius),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              children: [
-                if (!first) const Divider(indent: 70),
-                Dismissible(
-                  key: ValueKey(e.id),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    color: Theme.of(context).colorScheme.errorContainer,
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 24),
-                    child: const Icon(Icons.delete_outline_rounded),
-                  ),
-                  onDismissed: (_) {
-                    app.deleteEntry(e);
-                    showUndo(context, 'Deleted', () => app.restoreEntry(e));
-                  },
-                  child: EntryTile(
-                    entry: e,
-                    showDay: multiDay,
-                    onTap: () => editEntry(context, e),
-                  ),
+    final desktop = Desktop.of(context);
+    final cardRadius = Radius.circular(desktop ? 12 : 20);
+    final list = ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: desktop
+          ? const EdgeInsets.fromLTRB(24, 8, 24, 32)
+          : const EdgeInsets.fromLTRB(16, 0, 16, 32),
+      itemCount: rows.length + 1,
+      itemBuilder: (context, i) {
+        if (i == 0) {
+          return desktop ? _found(context, shown) : _controls(context, shown);
+        }
+        final row = rows[i - 1];
+        if (row is (String, List<Entry>)) {
+          return SectionTitle(row.$1, trailing: _summary(row.$2));
+        }
+        final (e, first, last) = row as (Entry, bool, bool);
+        final radius = BorderRadius.vertical(
+          top: first ? cardRadius : Radius.zero,
+          bottom: last ? cardRadius : Radius.zero,
+        );
+        return Material(
+          color: Baby.card,
+          shape: RoundedRectangleBorder(borderRadius: radius),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              if (!first) Divider(indent: desktop ? 0 : 70),
+              Dismissible(
+                key: ValueKey(e.id),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  color: Theme.of(context).colorScheme.errorContainer,
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 24),
+                  child: const Icon(Icons.delete_outline_rounded),
                 ),
-              ],
-            ),
-          );
-        },
-      ),
+                onDismissed: (_) {
+                  app.deleteEntry(e);
+                  showUndo(context, 'Deleted', () => app.restoreEntry(e));
+                },
+                child: EntryTile(
+                  entry: e,
+                  showDay: multiDay,
+                  onTap: () => editEntry(context, e),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (!desktop) return PullToSync(child: list);
+    // Desktop: filters in a panel beside the log.
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          key: const ValueKey('history-filters'),
+          width: 340,
+          decoration: BoxDecoration(
+            border: Border(right: BorderSide(color: Baby.border)),
+          ),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(24, 16, 20, 24),
+            children: [_controls(context, shown, results: false)],
+          ),
+        ),
+        Expanded(child: PullToSync(child: list)),
+      ],
     );
   }
 
@@ -235,68 +379,102 @@ class _HistoryPageState extends State<HistoryPage> {
     );
   }
 
-  Widget _controls(BuildContext context, List<Entry> shown) {
+  bool get _hasFilters =>
+      filter != null ||
+      _search.text.isNotEmpty ||
+      period.start != null ||
+      period.hour != null;
+
+  void _reset() => setState(() {
+    filter = null;
+    _search.clear();
+    period = const HistoryPeriod();
+  });
+
+  /// The count of entries shown, or why there are none.
+  Widget _found(BuildContext context, List<Entry> shown) {
     final searching = _search.text.isNotEmpty;
+    final nothingLogged = AppScope.of(context).entries.isEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (shown.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 40),
+            child: Column(
+              children: [
+                IconBubble(
+                  glyph: (size, color) => Icon(
+                    nothingLogged
+                        ? Icons.history_rounded
+                        : Icons.search_off_rounded,
+                    size: size,
+                    color: color,
+                  ),
+                  color: Baby.pillSoft,
+                  iconColor: Baby.primary,
+                  size: 64,
+                ),
+                const SizedBox(height: 16),
+                LText(
+                  nothingLogged
+                      ? 'Nothing logged yet'
+                      : searching
+                      ? 'Nothing matches "${_search.text}"'
+                      : 'No entries match these filters',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                LText(
+                  nothingLogged
+                      ? 'Feeds, nappies, sleep and pills you log on the Today screen will show up here.'
+                      : 'Try another day, or show everything.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Baby.muted),
+                ),
+                if (!nothingLogged && _hasFilters) ...[
+                  const SizedBox(height: 12),
+                  OutlinedButton(
+                    onPressed: _reset,
+                    child: const LText('Show everything'),
+                  ),
+                ],
+              ],
+            ),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: LText(
+              '${shown.length} found',
+              style: TextStyle(color: Baby.muted, fontWeight: FontWeight.w700),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _controls(
+    BuildContext context,
+    List<Entry> shown, {
+    bool results = true,
+  }) {
+    final desktop = Desktop.of(context);
+    final searching = _search.text.isNotEmpty;
+    final extras =
+        (period.hour != null ? 1 : 0) + (grouping != Grouping.day ? 1 : 0);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
             const Expanded(
-              child: LText(
-                'Activity log',
-                style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800),
-              ),
+              child: LText('Everything that was logged, newest first'),
             ),
-            OutlinedButton.icon(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => const ChartsPage()),
-              ),
-              icon: const Icon(Icons.bar_chart_rounded),
-              label: const LText('Charts'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        const LText(
-          'Everything logged for this baby, newest first. Time filters use entry start times.',
-        ),
-        const SizedBox(height: 12),
-        HistoryPeriodControls(
-          period: period,
-          allowAll: true,
-          onChanged: (value) => setState(() => period = value),
-        ),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _search,
-                onChanged: (_) => setState(() {}),
-                textInputAction: TextInputAction.search,
-                decoration: LInputDecoration(
-                  hintText: 'Search, e.g. poo, left, iron, monday',
-                  prefixIcon: Icon(Icons.search_rounded, color: Baby.muted),
-                  suffixIcon: searching
-                      ? LIconButton(
-                          tooltip: 'Clear',
-                          icon: const Icon(Icons.close_rounded),
-                          onPressed: () => setState(_search.clear),
-                        )
-                      : null,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(28),
-                    borderSide: BorderSide(color: Baby.line),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(28),
-                    borderSide: BorderSide(color: Baby.line),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 4),
             PopupMenuButton<String>(
               tooltip: 'Export and import',
               icon: const Icon(Icons.more_vert_rounded),
@@ -334,83 +512,140 @@ class _HistoryPageState extends State<HistoryPage> {
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              for (final (type, label, glyph, color) in [
-                (null, 'All', null, null),
-                (EntryType.feed, 'Feeds', Glyphs.feed, Baby.feed),
-                (EntryType.nappy, 'Nappies', Glyphs.nappy, Baby.nappy),
-                (EntryType.pill, 'Pills', Glyphs.pill, Baby.pill),
-                (EntryType.sleep, 'Sleep', Glyphs.sleep, Baby.pill),
-              ])
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    avatar: glyph?.call(18, color!),
-                    label: LText(label),
-                    selected: filter == type,
-                    onSelected: (_) => setState(() => filter = type),
-                  ),
-                ),
-            ],
-          ),
-        ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            LText(
-              'Group by',
-              style: TextStyle(fontWeight: FontWeight.w800, color: Baby.muted),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    for (final g in Grouping.values)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: ChoiceChip(
-                          label: LText(switch (g) {
-                            Grouping.day => 'Day',
-                            Grouping.week => 'Week',
-                            Grouping.month => 'Month',
-                            Grouping.type => 'Type',
-                          }),
-                          selected: grouping == g,
-                          onSelected: (_) => setState(() => grouping = g),
-                        ),
-                      ),
-                  ],
-                ),
+        _chipRow(desktop, [
+          for (final (type, label, glyph, color) in [
+            (null, 'All', null, null),
+            (EntryType.feed, 'Feeds', Glyphs.feed, Baby.feed),
+            (EntryType.nappy, 'Nappies', Glyphs.nappy, Baby.nappy),
+            (EntryType.pill, 'Pills', Glyphs.pill, Baby.pill),
+            (EntryType.sleep, 'Sleep', Glyphs.sleep, Baby.pill),
+          ])
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                avatar: glyph?.call(18, color!),
+                label: LText(label),
+                selected: filter == type,
+                onSelected: (_) => setState(() => filter = type),
               ),
             ),
-          ],
+        ]),
+        const SizedBox(height: 8),
+        HistoryPeriodControls(
+          period: period,
+          allowAll: true,
+          showHour: false,
+          onChanged: (value) => setState(() => period = value),
         ),
-        if (shown.isEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 64),
-            child: LText(
-              searching
-                  ? 'Nothing matches "${_search.text}"'
-                  : 'No entries match these filters',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Baby.muted, fontWeight: FontWeight.w600),
+        TextField(
+          controller: _search,
+          onChanged: (_) => setState(() {}),
+          textInputAction: TextInputAction.search,
+          decoration: LInputDecoration(
+            hintText: 'Search, e.g. poo, left, iron, monday',
+            prefixIcon: Icon(Icons.search_rounded, color: Baby.muted),
+            suffixIcon: searching
+                ? LIconButton(
+                    tooltip: 'Clear',
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => setState(_search.clear),
+                  )
+                : null,
+            contentPadding: const EdgeInsets.symmetric(vertical: 12),
+            border: desktop
+                ? null
+                : OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(28),
+                    borderSide: BorderSide(color: Baby.line),
+                  ),
+            enabledBorder: desktop
+                ? null
+                : OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(28),
+                    borderSide: BorderSide(color: Baby.line),
+                  ),
+          ),
+        ),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: TextButton.icon(
+            onPressed: () => setState(() => moreOptions = !moreOptions),
+            icon: Icon(
+              moreOptions
+                  ? Icons.expand_less_rounded
+                  : Icons.expand_more_rounded,
             ),
-          )
-        else
-          Padding(
-            padding: const EdgeInsets.only(top: 10),
-            child: LText(
-              '${shown.length} found',
-              style: TextStyle(color: Baby.muted, fontWeight: FontWeight.w700),
+            label: LText.raw(
+              extras > 0
+                  ? '${tr('More options')} ($extras)'
+                  : tr('More options'),
             ),
           ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: !moreOptions
+              ? const SizedBox(width: double.infinity)
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    HistoryHourPicker(
+                      period: period,
+                      onChanged: (value) => setState(() => period = value),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        LText(
+                          'Group by',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: Baby.muted,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                for (final g in Grouping.values)
+                                  Padding(
+                                    padding: const EdgeInsets.only(right: 6),
+                                    child: ChoiceChip(
+                                      label: LText(switch (g) {
+                                        Grouping.day => 'Day',
+                                        Grouping.week => 'Week',
+                                        Grouping.month => 'Month',
+                                        Grouping.type => 'Type',
+                                      }),
+                                      selected: grouping == g,
+                                      onSelected: (_) =>
+                                          setState(() => grouping = g),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+        ),
+        if (results) _found(context, shown),
       ],
     );
   }
+
+  /// Chips side by side: scrolling sideways on the phone, wrapping on desktop.
+  Widget _chipRow(bool desktop, List<Widget> chips) => desktop
+      ? Wrap(runSpacing: 8, children: chips)
+      : SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(children: chips),
+        );
 }

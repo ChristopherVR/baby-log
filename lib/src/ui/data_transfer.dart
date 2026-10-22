@@ -86,7 +86,7 @@ Future<void> importBackupFile(BuildContext context) async {
   final app = AppScope.of(context);
   try {
     final file = await FilePicker.pickFile(
-      dialogTitle: 'Choose a Baby Log backup',
+      dialogTitle: 'Choose a Nestling backup',
       type: FileType.custom,
       allowedExtensions: const ['json'],
     );

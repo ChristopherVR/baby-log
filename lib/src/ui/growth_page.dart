@@ -26,9 +26,9 @@ String babyAge(BabyProfile baby, [DateTime? at]) {
   return tr('$months months old');
 }
 
-void editBabyProfile(BuildContext context) => showSheet(
+void editBabyProfile(BuildContext context, [BabyProfile? baby]) => showSheet(
   context,
-  BabyProfileEditor(initial: AppScope.of(context).activeBaby),
+  BabyProfileEditor(initial: baby ?? AppScope.of(context).activeBaby),
 );
 
 class BabyProfileEditor extends StatefulWidget {
@@ -128,7 +128,9 @@ class _BabyProfileEditorState extends State<BabyProfileEditor> {
                   if (!form.currentState!.validate()) return;
                   final app = AppScope.of(context);
                   if (birth != null &&
-                      app.growthEntries.any((e) => e.date.isBefore(birth!))) {
+                      app
+                          .growthEntriesFor(widget.initial.id)
+                          .any((e) => e.date.isBefore(birth!))) {
                     showMessage(
                       context,
                       'The birthday must be on or before the first growth entry.',
@@ -136,6 +138,7 @@ class _BabyProfileEditorState extends State<BabyProfileEditor> {
                     return;
                   }
                   app.saveBabyProfile(
+                    id: widget.initial.id,
                     name: name.text,
                     dateOfBirth: birth,
                     photo: photo,
@@ -149,6 +152,24 @@ class _BabyProfileEditorState extends State<BabyProfileEditor> {
   );
 }
 
+Glyph _iconGlyph(IconData icon) =>
+    (size, color) => Icon(icon, size: size, color: color);
+
+/// Newest entry (by date, then edit time) that has a value, plus the one
+/// before it, so the summary can say how much changed.
+(GrowthEntry, GrowthEntry?)? _latestTwo(
+  List<GrowthEntry> entries,
+  double? Function(GrowthEntry) value,
+) {
+  final list = entries.where((e) => value(e) != null).toList()
+    ..sort((a, b) {
+      final day = b.date.compareTo(a.date);
+      return day != 0 ? day : b.updatedAt.compareTo(a.updatedAt);
+    });
+  if (list.isEmpty) return null;
+  return (list.first, list.length > 1 ? list[1] : null);
+}
+
 class GrowthPage extends StatelessWidget {
   const GrowthPage({super.key});
   @override
@@ -156,64 +177,24 @@ class GrowthPage extends StatelessWidget {
     final app = AppScope.of(context);
     final baby = app.activeBaby;
     final entries = app.growthEntries;
-    final now = DateTime.now();
-    final thisMonth = entries.any(
-      (e) => e.date.year == now.year && e.date.month == now.month,
-    );
     final photos = entries
         .where((e) => e.photo != null)
         .toList()
         .reversed
         .toList();
+    final weight = _latestTwo(entries, (e) => e.weightKg);
+    final height = _latestTwo(entries, (e) => e.heightCm);
     return PullToSync(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    LText(
-                      'GROWING TOGETHER',
-                      style: TextStyle(
-                        letterSpacing: 2,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: Baby.primary,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    const LText(
-                      'Little by little.',
-                      style: TextStyle(
-                        fontSize: 32,
-                        height: 1.15,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const LText('Their story, one month at a time.'),
-                  ],
-                ),
-              ),
-              IconButton(
-                tooltip: tr('Edit profile'),
-                onPressed: () => editBabyProfile(context),
-                icon: const Icon(Icons.manage_accounts_outlined),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
           Card(
             color: Baby.pillSoft,
             child: Padding(
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.fromLTRB(18, 16, 6, 16),
               child: Row(
                 children: [
-                  BabyPhoto(photo: baby.photo, size: 68),
+                  BabyPhoto(photo: baby.photo, size: 64),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(
@@ -228,31 +209,89 @@ class GrowthPage extends StatelessWidget {
                         ),
                         LText(babyAge(baby)),
                         if (baby.dateOfBirth != null)
-                          LText(
+                          LText.raw(
                             DateFormat.yMMMd().format(baby.dateOfBirth!),
-                            style: TextStyle(color: Baby.muted),
+                            style: TextStyle(color: Baby.muted, fontSize: 13),
                           ),
                       ],
                     ),
+                  ),
+                  IconButton(
+                    tooltip: tr('Edit profile'),
+                    onPressed: () => editBabyProfile(context),
+                    icon: const Icon(Icons.edit_outlined),
                   ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: () => showSheet(context, GrowthEditor(baby: baby)),
             icon: const Icon(Icons.add_rounded),
             label: const LText('Add a moment'),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           LText(
-            thisMonth
-                ? 'This month is in your journal. You can add more anytime.'
-                : 'A photo and a measurement each month make a lovely keepsake.',
+            'Save a weight, height, photo or memory. Any one is enough.',
             textAlign: TextAlign.center,
             style: TextStyle(color: Baby.muted, fontSize: 13),
           ),
+          if (entries.isEmpty)
+            const _EmptyGrowth()
+          else ...[
+            const SectionTitle('Latest measurements'),
+            LayoutBuilder(
+              builder: (context, c) {
+                final stacked =
+                    c.maxWidth < 340 ||
+                    MediaQuery.textScalerOf(context).scale(1) > 1.3;
+                final tiles = [
+                  _StatTile(
+                    label: 'Weight',
+                    unit: 'kg',
+                    icon: Icons.monitor_weight_outlined,
+                    color: Baby.primary,
+                    soft: Baby.pillSoft,
+                    latest: weight,
+                    value: (e) => e.weightKg,
+                  ),
+                  _StatTile(
+                    label: 'Height',
+                    unit: 'cm',
+                    icon: Icons.straighten_rounded,
+                    color: Baby.feed,
+                    soft: Baby.feedSoft,
+                    latest: height,
+                    value: (e) => e.heightCm,
+                  ),
+                ];
+                return stacked
+                    ? Column(
+                        children: [
+                          tiles[0],
+                          const SizedBox(height: 12),
+                          tiles[1],
+                        ],
+                      )
+                    : IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(child: tiles[0]),
+                            const SizedBox(width: 12),
+                            Expanded(child: tiles[1]),
+                          ],
+                        ),
+                      );
+              },
+            ),
+          ],
+          if (_hasTrend(entries)) ...[
+            const SectionTitle('Growth over time'),
+            GrowthChart(entries: entries, weight: true),
+            GrowthChart(entries: entries, weight: false),
+          ],
           if (photos.length >= 2) ...[
             const SectionTitle('Look how you’ve grown'),
             Row(
@@ -268,54 +307,20 @@ class GrowthPage extends StatelessWidget {
               ],
             ),
           ],
-          if (entries.any((e) => e.weightKg != null || e.heightCm != null)) ...[
-            const SectionTitle('Growing at your own pace'),
-            GrowthChart(entries: entries, weight: true),
-            const SizedBox(height: 12),
-            GrowthChart(entries: entries, weight: false),
-            const SizedBox(height: 8),
+          if (entries.isNotEmpty) ...[
+            const SectionTitle('Journal'),
             LText(
-              'Your recorded measurements over time.',
-              style: TextStyle(fontSize: 12, color: Baby.muted),
+              'Newest first. Tap an entry to edit it.',
+              style: TextStyle(color: Baby.muted, fontSize: 13),
             ),
           ],
-          const SectionTitle('The little moments'),
-          if (entries.isEmpty)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(28),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.auto_stories_outlined,
-                      size: 48,
-                      color: Baby.primary,
-                    ),
-                    const SizedBox(height: 16),
-                    const LText(
-                      'A story only you can tell',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    const LText(
-                      'Add your first photo, weight or height. Come back each month to see all those little changes.',
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-            ),
           for (var i = 0; i < entries.length; i++) ...[
             if (i == 0 ||
                 entries[i].date.month != entries[i - 1].date.month ||
                 entries[i].date.year != entries[i - 1].date.year)
               Padding(
                 padding: const EdgeInsets.only(top: 14, bottom: 10),
-                child: LText(
+                child: LText.raw(
                   DateFormat.yMMMM().format(entries[i].date),
                   style: TextStyle(
                     color: Baby.primary,
@@ -327,6 +332,137 @@ class GrowthPage extends StatelessWidget {
             const SizedBox(height: 12),
           ],
         ],
+      ),
+    );
+  }
+
+  /// A trend line needs at least two measurements of the same kind.
+  static bool _hasTrend(List<GrowthEntry> entries) =>
+      entries.where((e) => e.weightKg != null).length > 1 ||
+      entries.where((e) => e.heightCm != null).length > 1;
+}
+
+class _EmptyGrowth extends StatelessWidget {
+  const _EmptyGrowth();
+  @override
+  Widget build(BuildContext context) => Card(
+    margin: const EdgeInsets.only(top: 20),
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          IconBubble(
+            glyph: _iconGlyph(Icons.auto_stories_outlined),
+            color: Baby.pillSoft,
+            iconColor: Baby.primary,
+            size: 64,
+          ),
+          const SizedBox(height: 16),
+          const LText(
+            'Track how your baby grows',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          const LText(
+            'Add a weight, height or photo now and then, for example at each clinic visit. You will see the latest numbers, a chart and a keepsake journal here.',
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _StatTile extends StatelessWidget {
+  const _StatTile({
+    required this.label,
+    required this.unit,
+    required this.icon,
+    required this.color,
+    required this.soft,
+    required this.latest,
+    required this.value,
+  });
+  final String label;
+  final String unit;
+  final IconData icon;
+  final Color color;
+  final Color soft;
+  final (GrowthEntry, GrowthEntry?)? latest;
+  final double? Function(GrowthEntry) value;
+  @override
+  Widget build(BuildContext context) {
+    final l = latest;
+    String? change;
+    if (l != null && l.$2 != null) {
+      final d = value(l.$1)! - value(l.$2!)!;
+      change =
+          '${d >= 0 ? '+' : '−'}${_measurement(d.abs())} $unit ${tr('since')} ${DateFormat.MMMd().format(l.$2!.date)}';
+    }
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                IconBubble(
+                  glyph: _iconGlyph(icon),
+                  color: soft,
+                  iconColor: color,
+                  size: 36,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: LText(
+                    label,
+                    style: TextStyle(
+                      color: Baby.muted,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (l == null)
+              LText(
+                'Not measured yet',
+                style: TextStyle(
+                  color: Baby.muted,
+                  fontWeight: FontWeight.w700,
+                ),
+              )
+            else ...[
+              LText.raw(
+                '${_measurement(value(l.$1)!)} $unit',
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              LText.raw(
+                DateFormat.yMMMd().format(l.$1.date),
+                style: TextStyle(color: Baby.muted, fontSize: 12),
+              ),
+              if (change != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: LText.raw(
+                    change,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -376,26 +512,27 @@ class _MomentCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  LText(
+                  LText.raw(
                     baby.dateOfBirth == null
-                        ? DateFormat.MMMd().format(entry.date)
-                        : '${ageInMonths(baby.dateOfBirth!, entry.date)} months',
+                        ? DateFormat.yMMMd().format(entry.date)
+                        : babyAge(baby, entry.date),
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  LText(
-                    DateFormat.yMMMd().format(entry.date),
-                    style: TextStyle(color: Baby.muted, fontSize: 12),
-                  ),
+                  if (baby.dateOfBirth != null)
+                    LText.raw(
+                      DateFormat.yMMMd().format(entry.date),
+                      style: TextStyle(color: Baby.muted, fontSize: 12),
+                    ),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 12,
                     runSpacing: 4,
                     children: [
                       if (entry.weightKg != null)
-                        LText(
+                        LText.raw(
                           '${_measurement(entry.weightKg!)} kg',
                           style: TextStyle(
                             color: Baby.primary,
@@ -403,7 +540,7 @@ class _MomentCard extends StatelessWidget {
                           ),
                         ),
                       if (entry.heightCm != null)
-                        LText(
+                        LText.raw(
                           '${_measurement(entry.heightCm!)} cm',
                           style: TextStyle(
                             color: Baby.feed,
@@ -477,37 +614,10 @@ class _GrowthEditorState extends State<GrowthEditor> {
           style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 8),
-        const LText('A photo, a measurement, a memory. Add any or all.'),
-        const SizedBox(height: 20),
-        if (photo != null)
-          Center(child: BabyPhoto(photo: photo, size: 180, square: true)),
-        OutlinedButton.icon(
-          onPressed: picking
-              ? null
-              : () async {
-                  setState(() => picking = true);
-                  final value = await pickBabyPhoto(context);
-                  if (mounted) {
-                    setState(() {
-                      if (value != null) photo = value;
-                      picking = false;
-                    });
-                  }
-                },
-          icon: const Icon(Icons.add_photo_alternate_outlined),
-          label: LText(
-            picking
-                ? 'Opening photo…'
-                : photo == null
-                ? 'Add a photo'
-                : 'Change photo',
-          ),
+        const LText(
+          'Pick the date, then add a measurement, a photo or a memory. Any one is enough.',
         ),
-        if (photo != null)
-          TextButton(
-            onPressed: () => setState(() => photo = null),
-            child: const LText('Remove photo'),
-          ),
+        const SizedBox(height: 20),
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.calendar_today_outlined),
@@ -557,6 +667,36 @@ class _GrowthEditorState extends State<GrowthEditor> {
             ),
           ],
         ),
+        const SizedBox(height: 8),
+        if (photo != null)
+          Center(child: BabyPhoto(photo: photo, size: 180, square: true)),
+        OutlinedButton.icon(
+          onPressed: picking
+              ? null
+              : () async {
+                  setState(() => picking = true);
+                  final value = await pickBabyPhoto(context);
+                  if (mounted) {
+                    setState(() {
+                      if (value != null) photo = value;
+                      picking = false;
+                    });
+                  }
+                },
+          icon: const Icon(Icons.add_photo_alternate_outlined),
+          label: LText(
+            picking
+                ? 'Opening photo…'
+                : photo == null
+                ? 'Add a photo'
+                : 'Change photo',
+          ),
+        ),
+        if (photo != null)
+          TextButton(
+            onPressed: () => setState(() => photo = null),
+            child: const LText('Remove photo'),
+          ),
         const SizedBox(height: 16),
         LTextFormField(
           controller: note,
@@ -650,32 +790,20 @@ class GrowthChart extends StatelessWidget {
     final color = weight ? Baby.primary : Baby.feed;
     final change = value(points.last)! - value(points.first)!;
     return Card(
+      margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: LText(
-                    weight ? 'Weight' : 'Height',
-                    style: TextStyle(color: color, fontWeight: FontWeight.w800),
-                  ),
-                ),
-                LText(
-                  '${_measurement(value(points.last)!)} $unit',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
+            LText(
+              weight ? 'Weight' : 'Height',
+              style: TextStyle(color: color, fontWeight: FontWeight.w800),
             ),
             if (points.length > 1) ...[
-              LText(
-                '${change >= 0 ? '+' : ''}${change.toStringAsFixed(1)} $unit ${tr('since first entry')}',
-                style: TextStyle(color: Baby.muted, fontSize: 12),
+              LText.raw(
+                '${_measurement(value(points.first)!)} → ${_measurement(value(points.last)!)} $unit (${change >= 0 ? '+' : '−'}${_measurement(change.abs())} ${tr('since first entry')})',
+                style: TextStyle(color: Baby.muted, fontSize: 13),
               ),
               const SizedBox(height: 12),
               Semantics(

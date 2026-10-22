@@ -33,7 +33,8 @@ android {
     }
 
     defaultConfig {
-        // Keep this ID for both channels; GitHub updates must retain their identity.
+        // The GitHub channel keeps the original ID so sideloaded installs keep
+        // updating in place; Play publishes under its own ID (see the flavor).
         applicationId = "com.babyapp.baby_app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
@@ -73,6 +74,7 @@ android {
         }
         create("play") {
             dimension = "distribution"
+            applicationId = "io.github.christophervr.nestling"
             signingConfig = signingConfigs.getByName("playUpload")
         }
     }

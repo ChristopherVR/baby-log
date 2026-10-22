@@ -66,8 +66,11 @@ class SyncServer {
   Future<void> start({
     required SyncReply Function(String key, String askerId) onInfo,
     required Future<SyncReply> Function(Map<String, dynamic> body, String remoteIp) onSync,
+    bool anyPort = false,
   }) async {
     if (_server != null) return;
+    // Tests run several devices at once: let the system choose the port.
+    if (anyPort) _server = await HttpServer.bind(InternetAddress.anyIPv4, 0);
     // A second copy of the app on the same PC (for testing) takes the next port.
     for (var p = defaultSyncPort; p < defaultSyncPort + 10 && _server == null; p++) {
       try {

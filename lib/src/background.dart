@@ -46,3 +46,19 @@ class BackgroundSync {
     }
   }
 }
+
+/// The name the device itself goes by, used as the default device name.
+class DeviceIdentity {
+  /// The phone's name from its settings (e.g. "Chris's Galaxy S23"), or its
+  /// maker and model; the computer name on desktop. Null if unknown.
+  static Future<String?> name() async {
+    if (BackgroundSync.supported) {
+      final name = await BackgroundSync._call<String>('deviceName');
+      return name == null || name.trim().isEmpty ? null : name.trim();
+    }
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      return Platform.localHostname;
+    }
+    return null;
+  }
+}

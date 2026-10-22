@@ -62,7 +62,7 @@ class PeerPage extends StatelessWidget {
     if (p == null) {
       return Scaffold(
         appBar: AppBar(),
-        body: const Center(child: LText('This device is no longer paired')),
+        body: const Center(child: LText('This device is no longer in the hub')),
       );
     }
     final name = p.name.isEmpty ? p.host : p.name;
@@ -333,11 +333,17 @@ class PeerPage extends StatelessWidget {
                   children: [
                     for (final r in p.history.take(15))
                       ListTile(
-                        leading: Icon(
-                          r.outgoing
-                              ? Icons.north_east_rounded
-                              : Icons.south_west_rounded,
-                          color: Baby.primary,
+                        leading: IconBubble(
+                          glyph: (s, c) => Icon(
+                            r.outgoing
+                                ? Icons.north_east_rounded
+                                : Icons.south_west_rounded,
+                            size: s,
+                            color: c,
+                          ),
+                          color: Baby.pillSoft,
+                          iconColor: Baby.primary,
+                          size: 40,
                         ),
                         title: LText(
                           [
@@ -390,7 +396,7 @@ class PeerPage extends StatelessWidget {
                         } else {
                           showMessage(
                             context,
-                            'Not found. Is $name on the same Wi-Fi with Baby Log open?',
+                            'Not found. Is $name on the same Wi-Fi with Nestling open?',
                           );
                         }
                       },
@@ -418,7 +424,7 @@ class PeerPage extends StatelessWidget {
               TextButton.icon(
                 style: TextButton.styleFrom(foregroundColor: Baby.error),
                 icon: const Icon(Icons.link_off_rounded),
-                label: const LText('Unpair this device'),
+                label: const LText('Remove from hub'),
                 onPressed: () {
                   app.forgetPeer(p);
                   Navigator.pop(context);

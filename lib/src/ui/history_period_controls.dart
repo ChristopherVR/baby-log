@@ -11,11 +11,15 @@ class HistoryPeriodControls extends StatelessWidget {
     required this.period,
     required this.onChanged,
     this.allowAll = false,
+    this.showHour = true,
   });
 
   final HistoryPeriod period;
   final ValueChanged<HistoryPeriod> onChanged;
   final bool allowAll;
+
+  /// Whether the time-of-day dropdown is part of these controls.
+  final bool showHour;
 
   @override
   Widget build(BuildContext context) {
@@ -138,32 +142,48 @@ class HistoryPeriodControls extends StatelessWidget {
                 ),
             ],
           ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<int>(
-          key: ValueKey(period.hour),
-          initialValue: period.hour ?? -1,
-          decoration: LInputDecoration(labelText: 'Time of day'),
-          isExpanded: true,
-          items: [
-            const DropdownMenuItem(value: -1, child: LText('All hours')),
-            for (var h = 0; h < 24; h++)
-              DropdownMenuItem(
-                value: h,
-                child: Text(
-                  '${h.toString().padLeft(2, '0')}:00 – ${h.toString().padLeft(2, '0')}:59',
-                ),
-              ),
-          ],
-          onChanged: (h) => onChanged(
-            HistoryPeriod(
-              start: period.start,
-              end: period.end,
-              hour: h == -1 ? null : h,
-            ),
-          ),
-        ),
+        if (showHour) ...[
+          const SizedBox(height: 8),
+          HistoryHourPicker(period: period, onChanged: onChanged),
+        ],
         const SizedBox(height: 12),
       ],
     );
   }
+}
+
+/// "Time of day" dropdown: limits a period to one hour of each day.
+class HistoryHourPicker extends StatelessWidget {
+  const HistoryHourPicker({
+    super.key,
+    required this.period,
+    required this.onChanged,
+  });
+  final HistoryPeriod period;
+  final ValueChanged<HistoryPeriod> onChanged;
+
+  @override
+  Widget build(BuildContext context) => DropdownButtonFormField<int>(
+    key: ValueKey(period.hour),
+    initialValue: period.hour ?? -1,
+    decoration: LInputDecoration(labelText: 'Time of day'),
+    isExpanded: true,
+    items: [
+      const DropdownMenuItem(value: -1, child: LText('All hours')),
+      for (var h = 0; h < 24; h++)
+        DropdownMenuItem(
+          value: h,
+          child: Text(
+            '${h.toString().padLeft(2, '0')}:00 – ${h.toString().padLeft(2, '0')}:59',
+          ),
+        ),
+    ],
+    onChanged: (h) => onChanged(
+      HistoryPeriod(
+        start: period.start,
+        end: period.end,
+        hour: h == -1 ? null : h,
+      ),
+    ),
+  );
 }

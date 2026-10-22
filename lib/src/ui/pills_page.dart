@@ -13,15 +13,19 @@ class PillsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
     final now = DateTime.now();
+    final desktop = Desktop.of(context);
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        icon: const Icon(Icons.add_rounded),
-        label: const LText(
-          'Add pill',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
-        onPressed: () => showSheet(context, const MedEditor()),
-      ),
+      // On desktop "Add pill" is in the top bar.
+      floatingActionButton: desktop
+          ? null
+          : FloatingActionButton.extended(
+              icon: const Icon(Icons.add_rounded),
+              label: const LText(
+                'Add pill',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              onPressed: () => showSheet(context, const MedEditor()),
+            ),
       body: PullToSync(
         child: PageWidth(
           child: app.meds.isEmpty
@@ -65,160 +69,191 @@ class PillsPage extends StatelessWidget {
                     ),
                   ],
                 )
-              : ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
-                  children: [
-                    for (final med in app.meds) ...[
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 14, 8, 16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  IconBubble(
-                                    glyph: Glyphs.pill,
-                                    color: Baby.pillSoft,
-                                    iconColor: Baby.pill,
-                                    size: 46,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        LText.raw(
-                                          med.name,
-                                          style: const TextStyle(
-                                            fontSize: 19,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                        LText(
-                                          [
-                                            if (med.dose.isNotEmpty) med.dose,
-                                            med.scheduleLabel,
-                                          ].join(' · '),
-                                          style: TextStyle(
-                                            color: Baby.muted,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Icon(
-                                    app.remindHere(med)
-                                        ? Icons.notifications_active_rounded
-                                        : Icons.notifications_off_outlined,
-                                    size: 20,
-                                    color: app.remindHere(med)
-                                        ? Baby.pill
-                                        : Baby.muted,
-                                  ),
-                                  LIconButton(
-                                    tooltip: 'Edit',
-                                    icon: const Icon(Icons.edit_outlined),
-                                    onPressed: () => showSheet(
-                                      context,
-                                      MedEditor(initial: med),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              LText(
-                                'TODAY',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                  color: Baby.muted,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 6,
-                                children: [
-                                  for (final (at, dose) in app.todaySlots(med))
-                                    ActionChip(
-                                      // A dose not yet ticked off can be logged at its planned time.
-                                      onPressed: dose != null
-                                          ? () => editEntry(context, dose)
-                                          : () => showSheet(
-                                              context,
-                                              TakePillSheet(
-                                                med: med,
-                                                time: at.isBefore(now)
-                                                    ? at
-                                                    : null,
-                                              ),
-                                            ),
-                                      backgroundColor: dose != null
-                                          ? Baby.nappySoft
-                                          : Baby.card,
-                                      avatar: Icon(
-                                        dose != null
-                                            ? Icons.check_circle_rounded
-                                            : at.isBefore(now)
-                                            ? Icons.error_outline_rounded
-                                            : Icons
-                                                  .radio_button_unchecked_rounded,
-                                        size: 18,
-                                        color: dose != null
-                                            ? Baby.ok
-                                            : at.isBefore(now)
-                                            ? Baby.warn
-                                            : Baby.muted,
-                                      ),
-                                      label: LText(
-                                        dose != null
-                                            ? '${hm(at)} · taken ${hm(dose.time)}'
-                                            : hm(at),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              const SizedBox(height: 14),
-                              Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: Row(
+              : LayoutBuilder(
+                  builder: (context, box) => ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: desktop
+                        ? const EdgeInsets.fromLTRB(24, 20, 24, 32)
+                        : const EdgeInsets.fromLTRB(16, 0, 16, 96),
+                    children: _columns(desktop && box.maxWidth >= 820 ? 2 : 1, [
+                      for (final med in app.meds)
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 14, 8, 16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
                                   children: [
+                                    IconBubble(
+                                      glyph: Glyphs.pill,
+                                      color: Baby.pillSoft,
+                                      iconColor: Baby.pill,
+                                      size: 46,
+                                    ),
+                                    const SizedBox(width: 12),
                                     Expanded(
-                                      child: FilledButton.icon(
-                                        icon: const Icon(Icons.check_rounded),
-                                        label: const LText('Taken now'),
-                                        onPressed: () =>
-                                            takeAndUndo(context, app, med),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          LText.raw(
+                                            med.name,
+                                            style: const TextStyle(
+                                              fontSize: 19,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                          LText(
+                                            [
+                                              if (med.dose.isNotEmpty) med.dose,
+                                              med.scheduleLabel,
+                                            ].join(' · '),
+                                            style: TextStyle(
+                                              color: Baby.muted,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    const SizedBox(width: 10),
-                                    OutlinedButton.icon(
-                                      icon: const Icon(Icons.schedule_rounded),
-                                      label: const LText('Other time'),
+                                    Icon(
+                                      app.remindHere(med)
+                                          ? Icons.notifications_active_rounded
+                                          : Icons.notifications_off_outlined,
+                                      size: 20,
+                                      color: app.remindHere(med)
+                                          ? Baby.pill
+                                          : Baby.muted,
+                                    ),
+                                    LIconButton(
+                                      tooltip: 'Edit',
+                                      icon: const Icon(Icons.edit_outlined),
                                       onPressed: () => showSheet(
                                         context,
-                                        TakePillSheet(med: med),
+                                        MedEditor(initial: med),
                                       ),
                                     ),
                                   ],
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 12),
+                                LText(
+                                  'TODAY',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                    color: Baby.muted,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: [
+                                    for (final (at, dose) in app.todaySlots(
+                                      med,
+                                    ))
+                                      ActionChip(
+                                        // A dose not yet ticked off can be logged at its planned time.
+                                        onPressed: dose != null
+                                            ? () => editEntry(context, dose)
+                                            : () => showSheet(
+                                                context,
+                                                TakePillSheet(
+                                                  med: med,
+                                                  time: at.isBefore(now)
+                                                      ? at
+                                                      : null,
+                                                ),
+                                              ),
+                                        backgroundColor: dose != null
+                                            ? Baby.nappySoft
+                                            : Baby.card,
+                                        avatar: Icon(
+                                          dose != null
+                                              ? Icons.check_circle_rounded
+                                              : at.isBefore(now)
+                                              ? Icons.error_outline_rounded
+                                              : Icons
+                                                    .radio_button_unchecked_rounded,
+                                          size: 18,
+                                          color: dose != null
+                                              ? Baby.ok
+                                              : at.isBefore(now)
+                                              ? Baby.warn
+                                              : Baby.muted,
+                                        ),
+                                        label: LText(
+                                          dose != null
+                                              ? '${hm(at)} · taken ${hm(dose.time)}'
+                                              : hm(at),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 14),
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: FilledButton.icon(
+                                          icon: const Icon(Icons.check_rounded),
+                                          label: const LText('Taken now'),
+                                          onPressed: () =>
+                                              takeAndUndo(context, app, med),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      OutlinedButton.icon(
+                                        icon: const Icon(
+                                          Icons.schedule_rounded,
+                                        ),
+                                        label: const LText('Other time'),
+                                        onPressed: () => showSheet(
+                                          context,
+                                          TakePillSheet(med: med),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                  ],
+                    ]),
+                  ),
                 ),
         ),
       ),
     );
   }
+
+  /// Lays [cards] out in rows of [count], 12 apart.
+  static List<Widget> _columns(int count, List<Widget> cards) => [
+    for (var i = 0; i < cards.length; i += count)
+      Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: count == 1
+            ? cards[i]
+            : IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var j = i; j < i + count; j++) ...[
+                      if (j > i) const SizedBox(width: 12),
+                      Expanded(
+                        child: j < cards.length
+                            ? cards[j]
+                            : const SizedBox.shrink(),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+      ),
+  ];
 }
 
 void takeAndUndo(
