@@ -130,13 +130,15 @@ void main() {
       app.dispose();
     });
 
-    List<SearchGroup> find(String query) =>
-        search(buildSearchIndex(app), query);
-    SearchGroup? group(String query, SearchKind kind) =>
-        find(query).where((g) => g.kind == kind).firstOrNull;
+    List<SearchGroup> find(String query, {DateTime? now}) =>
+        search(buildSearchIndex(app, now: now), query);
+    SearchGroup? group(String query, SearchKind kind, {DateTime? now}) =>
+        find(query, now: now).where((g) => g.kind == kind).firstOrNull;
 
     test('finds entries, pills, routines, growth, babies and settings', () {
-      final now = DateTime.now();
+      // Midday, so entries a few hours back are still today wherever CI runs.
+      final today = DateTime.now();
+      final now = DateTime(today.year, today.month, today.day, 12);
       app.addEntry(
         Entry(
           type: EntryType.feed,
@@ -192,7 +194,7 @@ void main() {
         group('log a feed', SearchKind.action)!.hits.first.item.id,
         'log-feed',
       );
-      expect(group('today', SearchKind.entry)!.total, 2);
+      expect(group('today', SearchKind.entry, now: now)!.total, 2);
     });
 
     test('matches Afrikaans and English whatever the app language', () {
