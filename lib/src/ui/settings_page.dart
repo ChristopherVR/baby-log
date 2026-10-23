@@ -462,7 +462,7 @@ class _SettingsPageState extends State<SettingsPage> {
         (
           terms: ['Pill reminders', 'How it rings', 'Notification', 'Alarm'],
           child: _Tile(
-            icon: Icons.medication_rounded,
+            icon: Glyphs.pillIcon,
             title: 'Pill reminders',
             subtitle: 'For you, on this phone',
             value: app.pillAlarm && !Distribution.play ? 'Alarm' : 'Notification',

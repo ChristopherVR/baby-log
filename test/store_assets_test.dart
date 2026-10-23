@@ -15,6 +15,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:baby_app/main.dart';
+import 'package:baby_app/src/distribution.dart';
 import 'package:baby_app/src/growth.dart';
 import 'package:baby_app/src/models.dart';
 import 'package:baby_app/src/store.dart';
@@ -315,10 +316,13 @@ void main() {
       );
       Baby.dark = false;
       Baby.dim = false;
+      // The screenshots are for Google Play, so they show the Play build.
+      Distribution.play = true;
       now = DateTime.now();
       _seed(app, now);
     });
     tearDown(() async {
+      Distribution.play = false;
       app.dispose();
       await app.pendingSave;
       await dir.delete(recursive: true);
@@ -456,9 +460,9 @@ void main() {
         await tester.dragFrom(const Offset(180, 450), const Offset(0, -620));
       });
     });
-    testWidgets('pills', (tester) async {
-      await shot(tester, '05-pills', 'Never miss a dose', () async {
-        await tapNav(tester, 'Pills');
+    testWidgets('habits', (tester) async {
+      await shot(tester, '05-habits', 'Keep up the little habits', () async {
+        await tapNav(tester, 'Habits');
       });
     });
     testWidgets('family', (tester) async {
@@ -566,14 +570,14 @@ void _seed(AppState app, DateTime now) {
   }
 
   final vitD = Medication(
-    name: 'Vitamin D',
-    dose: '1 drop',
+    name: 'Tummy time',
+    dose: '10 minutes',
     count: 1,
     startMinutes: 9 * 60,
   );
   final iron = Medication(
-    name: 'Iron drops',
-    dose: '0.5 ml',
+    name: 'Pumping',
+    dose: '15 minutes',
     count: 2,
     startMinutes: 8 * 60,
   );

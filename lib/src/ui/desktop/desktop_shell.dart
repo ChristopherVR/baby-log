@@ -531,7 +531,7 @@ class DesktopTopBar extends StatelessWidget {
 }
 
 /// Page labels for the sidebar, matching [ShellTabs].
-const List<NavDestination> shellDestinations = [
+List<NavDestination> get shellDestinations => [
   (label: 'Today', icon: Icons.home_outlined, selectedIcon: Icons.home_rounded),
   (
     label: 'History',
@@ -540,8 +540,8 @@ const List<NavDestination> shellDestinations = [
   ),
   (
     label: 'Pills',
-    icon: Icons.medication_outlined,
-    selectedIcon: Icons.medication_rounded,
+    icon: Glyphs.pillOutlinedIcon,
+    selectedIcon: Glyphs.pillIcon,
   ),
   (
     label: 'Routines',

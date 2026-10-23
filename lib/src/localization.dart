@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'distribution.dart';
+
 /// Device-local language; user-entered names and notes are kept as entered.
 abstract final class AppLanguage {
   static String _code = 'en';
@@ -12,10 +14,20 @@ abstract final class AppLanguage {
 }
 
 String tr(String text, {String? language}) {
-  if ((language ?? AppLanguage.code) != 'af' || text.isEmpty) return text;
-  final exact = afrikaans[text];
+  if (text.isEmpty) return text;
+  if (Distribution.play) text = _translate(text, playWording, _playPatterns);
+  if ((language ?? AppLanguage.code) != 'af') return text;
+  return _translate(text, afrikaans, _patterns);
+}
+
+String _translate(
+  String text,
+  Map<String, String> table,
+  List<_TranslationPattern> patterns,
+) {
+  final exact = table[text];
   if (exact != null) return exact;
-  for (final entry in _patterns) {
+  for (final entry in patterns) {
     final match = entry.pattern.firstMatch(text);
     if (match == null) continue;
     var translated = entry.translation;
@@ -31,17 +43,20 @@ String tr(String text, {String? language}) {
     if (text.contains(separator)) {
       return text
           .split(separator)
-          .map((part) => tr(part, language: language))
+          .map((part) => _translate(part, table, patterns))
           .join(separator);
     }
   }
   return text;
 }
 
-final _patterns = [
-  for (final entry in afrikaans.entries)
+List<_TranslationPattern> _patternsOf(Map<String, String> table) => [
+  for (final entry in table.entries)
     if (entry.key.contains('{')) _TranslationPattern(entry.key, entry.value),
 ]..sort((a, b) => b.specificity.compareTo(a.specificity));
+
+final _patterns = _patternsOf(afrikaans);
+final _playPatterns = _patternsOf(playWording);
 
 class _TranslationPattern {
   late final RegExp pattern;
@@ -254,16 +269,14 @@ const afrikaans = <String, String>{
       'Nagliggie · sagter kleure tot 06:00',
   'Night light': 'Nagliggie',
   'Turn off': 'Skakel af',
-  'Dims the colours from 6 pm to 6 am so the screen is gentle in a dark room.':
-      "Demp die kleure van 18:00 tot 06:00 sodat die skerm sag is in 'n donker kamer.",
+  'Dims the colours from 6 pm to 6 am so the screen is gentle in a dark room.': "Demp die kleure van 18:00 tot 06:00 sodat die skerm sag is in 'n donker kamer.",
   "Use this device's own name": 'Gebruik die toestel se eie naam',
   'Not paired yet': 'Nog nie gekoppel nie',
   'A name you chose': "'n Naam wat jy gekies het",
   'Set by this device': 'Deur hierdie toestel gestel',
   'Type a name your partner will recognise':
       'Tik ’n naam wat jou maat sal herken',
-  'It is a softer light theme, not dark mode. Choose Dark above for dark all day.':
-      "Dit is 'n sagter ligte tema, nie donker modus nie. Kies Donker hierbo vir heeldag donker.",
+  'It is a softer light theme, not dark mode. Choose Dark above for dark all day.': "Dit is 'n sagter ligte tema, nie donker modus nie. Kies Donker hierbo vir heeldag donker.",
   'App updates are available on Android.':
       'Appopdaterings is op Android beskikbaar.',
   'App updates': 'Appopdaterings',
@@ -696,8 +709,7 @@ const afrikaans = <String, String>{
   'Every {count} hours does not fit a day evenly, so the times restart each day at the first dose.': 'Elke {count} uur pas nie eweredig in ’n dag nie; die tye begin dus elke dag weer by die eerste dosis.',
   'The dose times and alarms are worked out for you.':
       'Die dosistye en wekkers word vir jou uitgewerk.',
-  'Get a reminder when the next feed is due, and when it is time for your pills.':
-      'Kry ’n herinnering wanneer die volgende voeding verwag word en wanneer dit tyd vir jou pille is.',
+  'Get a reminder when the next feed is due, and when it is time for your pills.': 'Kry ’n herinnering wanneer die volgende voeding verwag word en wanneer dit tyd vir jou pille is.',
   'Pill reminders show as normal notifications.':
       'Pilherinneringe verskyn as gewone kennisgewings.',
   'Get an alarm when the next feed is due, and when it is time for your pills.': 'Kry ’n wekker wanneer die volgende voeding verwag word en wanneer dit tyd vir jou pille is.',
@@ -743,7 +755,8 @@ const afrikaans = <String, String>{
       '{time} gesinchroniseer · tik vir besonderhede',
   'Not synced: different app versions':
       'Nie gesinchroniseer nie: verskillende toepassingweergawes',
-  'This device is no longer in the hub': 'Hierdie toestel is nie meer in die groep nie',
+  'This device is no longer in the hub':
+      'Hierdie toestel is nie meer in die groep nie',
   'all changes since you last synced':
       'alle veranderinge sedert jou laaste sinchronisasie',
   'baby profile': 'babaprofiel',
@@ -777,22 +790,27 @@ const afrikaans = <String, String>{
       '’n Kopie is behou. Kies Voer rugsteun in en kies:\n{path}',
   'Imported {entries} entries, {pills} pills, {profiles} profiles, {routines} routines and {completions} completions': '{entries} inskrywings, {pills} pille, {profiles} profiele, {routines} roetines en {completions} voltooiings ingevoer',
   '{body} (snoozed)': '{body} (sluimer)',
-  "Optional. The baby's name is shared with your partner's phone when you connect.":
-      'Opsioneel. Die baba se naam word met jou maat se foon gedeel wanneer julle koppel.',
+  "Optional. The baby's name is shared with your partner's phone when you connect.": 'Opsioneel. Die baba se naam word met jou maat se foon gedeel wanneer julle koppel.',
   'You are all set!': 'Alles is reg!',
-  'Change anything later in Settings.': 'Verander enigiets later in Instellings.',
+  'Change anything later in Settings.':
+      'Verander enigiets later in Instellings.',
   'More options': 'Meer opsies',
   'Show everything': 'Wys alles',
   'Try another day, or show everything.': 'Probeer ’n ander dag, of wys alles.',
   'Feeds, nappies, sleep and pills you log on the Today screen will show up here.': 'Voedings, doeke, slaap en pille wat jy op die Vandag-skerm aanteken, verskyn hier.',
-  'What happened and when, newest first.': 'Wat het gebeur en wanneer, nuutste eerste.',
-  'Everything that was logged, newest first': 'Alles wat aangeteken is, nuutste eerste',
-  'Patterns over time: feeds, nappies, sleep': 'Patrone oor tyd: voedings, doeke, slaap',
-  'Save a weight, height, photo or memory. Any one is enough.': 'Stoor ’n gewig, lengte, foto of herinnering. Enige een is genoeg.',
+  'What happened and when, newest first.':
+      'Wat het gebeur en wanneer, nuutste eerste.',
+  'Everything that was logged, newest first':
+      'Alles wat aangeteken is, nuutste eerste',
+  'Patterns over time: feeds, nappies, sleep':
+      'Patrone oor tyd: voedings, doeke, slaap',
+  'Save a weight, height, photo or memory. Any one is enough.':
+      'Stoor ’n gewig, lengte, foto of herinnering. Enige een is genoeg.',
   'Latest measurements': 'Jongste metings',
   'Growth over time': 'Groei oor tyd',
   'Journal': 'Joernaal',
-  'Newest first. Tap an entry to edit it.': 'Nuutste eerste. Tik op ’n inskrywing om dit te wysig.',
+  'Newest first. Tap an entry to edit it.':
+      'Nuutste eerste. Tik op ’n inskrywing om dit te wysig.',
   'Track how your baby grows': 'Hou dop hoe jou baba groei',
   'Add a weight, height or photo now and then, for example at each clinic visit. You will see the latest numbers, a chart and a keepsake journal here.': 'Voeg af en toe ’n gewig, lengte of foto by, byvoorbeeld by elke kliniekbesoek. Jy sal hier die jongste syfers, ’n grafiek en ’n aandenkingsjoernaal sien.',
   'Not measured yet': 'Nog nie gemeet nie',
@@ -804,7 +822,8 @@ const afrikaans = <String, String>{
   'Sync details': 'Sinchronisasie-besonderhede',
   'This device · version {version}': 'Hierdie toestel · weergawe {version}',
   'No other devices yet': 'Nog geen ander toestelle nie',
-  'Add a device to share this log.': 'Voeg ’n toestel by om hierdie logboek te deel.',
+  'Add a device to share this log.':
+      'Voeg ’n toestel by om hierdie logboek te deel.',
   'Paused: different app version': 'Onderbreek: ander toepassingweergawe',
   'Not reachable right now': 'Nie nou bereikbaar nie',
   'Waiting to connect': 'Wag om te koppel',
@@ -817,7 +836,8 @@ const afrikaans = <String, String>{
   'Remove from hub': 'Verwyder uit die groep',
   'Device added and synced': 'Toestel bygevoeg en gesinchroniseer',
   "Optional. Names are shared with your partner's phone when you connect. ": 'Opsioneel. Name word met jou lewensmaat se foon gedeel wanneer julle koppel. ',
-  "Add every baby you want to keep track of.": 'Voeg elke baba by wat jy wil dophou.',
+  "Add every baby you want to keep track of.":
+      'Voeg elke baba by wat jy wil dophou.',
   'Another baby': 'Nog ’n baba',
   'e.g. Noah': 'bv. Noah',
   'Add another baby': 'Voeg nog ’n baba by',
@@ -835,9 +855,11 @@ const afrikaans = <String, String>{
   'Start a nap': 'Begin ’n slapie',
   'Add a growth entry': 'Voeg ’n groei-inskrywing by',
   'Photo': 'Foto',
-  'Search feeds, pills, routines, settings…': 'Soek voedings, pille, roetines, instellings…',
+  'Search feeds, pills, routines, settings…':
+      'Soek voedings, pille, roetines, instellings…',
   'No results for “{query}”': 'Geen resultate vir “{query}” nie',
-  'Try another word, a date or a name.': 'Probeer ’n ander woord, ’n datum of ’n naam.',
+  'Try another word, a date or a name.':
+      'Probeer ’n ander woord, ’n datum of ’n naam.',
   'Recent': 'Onlangs',
   '{shown} of {total}': '{shown} van {total}',
   'Navigate': 'Beweeg',
@@ -860,4 +882,122 @@ const afrikaans = <String, String>{
   'Pair': 'Koppel',
   'Device': 'Toestel',
   'by {name}': 'deur {name}',
+  // Google Play wording (see [playWording]).
+  'Habits': 'Gewoontes',
+  'Habit': 'Gewoonte',
+  'habit': 'gewoonte',
+  'habits': 'gewoontes',
+  'Add habit': 'Voeg gewoonte by',
+  'Edit habit': 'Wysig gewoonte',
+  'Save habit': 'Stoor gewoonte',
+  'No habits yet': 'Nog geen gewoontes nie',
+  'Add a habit, say how often you do it and when you start.': 'Voeg ’n gewoonte by en kies hoe gereeld jy dit doen en wanneer jy begin.',
+  'The times and reminders are worked out for you.':
+      'Die tye en herinnerings word vir jou uitgewerk.',
+  'done {time}': 'gedoen {time}',
+  'Done now': 'Nou gedoen',
+  '{name} done at {time}': '{name} gedoen om {time}',
+  'Log a habit': 'Teken ’n gewoonte aan',
+  'Mark as done now': 'Merk as nou gedoen',
+  'Mark as done at {time}': 'Merk as gedoen om {time}',
+  'Edit when it was done': 'Wysig wanneer dit gedoen is',
+  'Details (optional)': 'Besonderhede (opsioneel)',
+  'e.g. 10 minutes': 'bv. 10 minute',
+  'e.g. Tummy time, Pumping': 'bv. Maagtyd, Pomp',
+  'First time at': 'Eerste keer om',
+  'TIMES': 'TYE',
+  'REMINDER BY TIME': 'HERINNERING PER TYD',
+  'Every {count} hours does not fit a day evenly, so the times restart each day at the first time.': 'Elke {count} uur pas nie eweredig in ’n dag nie; die tye begin dus elke dag weer by die eerste tyd.',
+  'Reminders are set per time on this phone. The other phone has its own settings.': 'Herinnerings word per tyd op hierdie foon ingestel. Die ander foon het sy eie instellings.',
+  'Feed and habit reminders': 'Voeding- en gewoonteherinnerings',
+  'Habit time: {name}': 'Tyd vir {name}',
+  'Habit reminders': 'Gewoonteherinnerings',
+  'Habit reminders show as normal notifications.':
+      'Gewoonteherinneringe verskyn as gewone kennisgewings.',
+  'Which habits remind you, and when, is set per habit on the Habits tab.': 'Kies per gewoonte op die Gewoontes-oortjie watter herinnerings jy ontvang en wanneer.',
+  'The feed reminder is kept for each baby: it follows the selected baby. Which habits remind you, and when, is set per habit on the Habits tab.': 'Die voedingsherinnering word vir elke baba gehou: dit volg die gekose baba. Watter gewoontes jou herinner, en wanneer, word per gewoonte op die Gewoontes-oortjie gestel.',
+  'Search feeds, habits, routines, settings…':
+      'Soek voedings, gewoontes, roetines, instellings…',
+  'Search, e.g. poo, left, tummy, monday':
+      'Soek, bv. poef, links, maagtyd, maandag',
+  'Habits per day': 'Gewoontes per dag',
+  'Feeds, nappies, sleep and habits you log on the Today screen will show up here.': 'Voedings, doeke, slaap en gewoontes wat jy op die Vandag-skerm aanteken, verskyn hier.',
+  'Nothing logged yet today.\nTap Feed, Nappy or Habit above to start.': 'Nog niks vandag aangeteken nie.\nTik Voeding, Doek of Gewoonte hier bo om te begin.',
+  'NEXT HABIT': 'VOLGENDE GEWOONTE',
+  'Add habits': 'Voeg gewoontes by',
+  'Habits done': 'Gewoontes gedoen',
+  'habit done': 'gewoonte gedoen',
+  'habits done': 'gewoontes gedoen',
+  'Feeds, nappies, habits done, habits and deletions are shared. Settings, reminders, the theme and device names stay on each phone. The counts match once both phones are in sync.': 'Voedings, doeke, gedoende gewoontes, gewoontes en verwyderings word gedeel. Instellings, herinnerings, die tema en toestelname bly op elke foon. Die getalle stem ooreen wanneer albei fone gesinchroniseer is.',
+  'Your habits': 'Jou gewoontes',
+  'Times worked out, with reminders': 'Tye uitgewerk, met herinnerings',
+  'Get a reminder when the next feed is due, and when it is time for your habits.': 'Kry ’n herinnering wanneer die volgende voeding verwag word en wanneer dit tyd vir jou gewoontes is.',
+  'Get an alarm when the next feed is due, and when it is time for your habits.': 'Kry ’n wekker wanneer die volgende voeding verwag word en wanneer dit tyd vir jou gewoontes is.',
+  'Add a habit': 'Voeg ’n gewoonte by',
+  'Add another habit': 'Voeg nog ’n gewoonte by',
+  'Imported {entries} entries, {meds} habits, {babies} profiles and {routines} routines and {completions} completions, {growth} growth entries': '{entries} inskrywings, {meds} gewoontes, {babies} profiele, {routines} roetines, {completions} voltooiings en {growth} groei-inskrywings ingevoer',
+  'Imported {entries} entries, {pills} habits, {profiles} profiles, {routines} routines and {completions} completions': '{entries} inskrywings, {pills} gewoontes, {profiles} profiele, {routines} roetines en {completions} voltooiings ingevoer',
+};
+
+/// The Google Play build tracks "habits" instead of "pills", so Play does not
+/// treat Nestling as a medical app. Applied by [tr] before translating.
+const playWording = <String, String>{
+  'Pills': 'Habits',
+  'Pill': 'Habit',
+  'pill': 'habit',
+  'pills': 'habits',
+  'Add pill': 'Add habit',
+  'Edit pill': 'Edit habit',
+  'Save pill': 'Save habit',
+  'No pills yet': 'No habits yet',
+  'Add a pill, say how often you take it and when you start.':
+      'Add a habit, say how often you do it and when you start.',
+  'The dose times and alarms are worked out for you.':
+      'The times and reminders are worked out for you.',
+  'taken {time}': 'done {time}',
+  'Taken now': 'Done now',
+  '{name} taken at {time}': '{name} done at {time}',
+  'Take a pill': 'Log a habit',
+  'Mark as taken now': 'Mark as done now',
+  'Mark as taken at {time}': 'Mark as done at {time}',
+  'Edit when it was taken': 'Edit when it was done',
+  'How many (optional)': 'Details (optional)',
+  'e.g. 1 tablet': 'e.g. 10 minutes',
+  'e.g. Iron, Vitamins': 'e.g. Tummy time, Pumping',
+  'First dose at': 'First time at',
+  'DOSE TIMES': 'TIMES',
+  'REMINDER BY DOSE TIME': 'REMINDER BY TIME',
+  'Every {count} hours does not fit a day evenly, so the times restart each day at the first dose.': 'Every {count} hours does not fit a day evenly, so the times restart each day at the first time.',
+  'Reminders are set per dose time on this phone. The other phone has its own settings.': 'Reminders are set per time on this phone. The other phone has its own settings.',
+  'Feed and pill reminders': 'Feed and habit reminders',
+  'Pill time: {name}': 'Habit time: {name}',
+  'Time to take your {name}': 'Time for {name}',
+  'Pill reminders': 'Habit reminders',
+  'Pill reminders show as normal notifications.':
+      'Habit reminders show as normal notifications.',
+  'Which pills remind you, and when, is set per pill on the Pills tab.':
+      'Which habits remind you, and when, is set per habit on the Habits tab.',
+  'The feed reminder is kept for each baby: it follows the selected baby. Which pills remind you, and when, is set per pill on the Pills tab.': 'The feed reminder is kept for each baby: it follows the selected baby. Which habits remind you, and when, is set per habit on the Habits tab.',
+  'Search feeds, pills, routines, settings…':
+      'Search feeds, habits, routines, settings…',
+  'Search, e.g. poo, left, iron, monday':
+      'Search, e.g. poo, left, tummy, monday',
+  'Pills per day': 'Habits per day',
+  'Feeds, nappies, sleep and pills you log on the Today screen will show up here.': 'Feeds, nappies, sleep and habits you log on the Today screen will show up here.',
+  'Nothing logged yet today.\nTap Feed, Nappy or Pill above to start.':
+      'Nothing logged yet today.\nTap Feed, Nappy or Habit above to start.',
+  'NEXT PILL': 'NEXT HABIT',
+  'Add pills': 'Add habits',
+  'Pill doses': 'Habits done',
+  'pill dose': 'habit done',
+  'pill doses': 'habits done',
+  'Feeds, nappies, pill doses, pills and deletions are shared. Settings, reminders, the theme and device names stay on each phone. The counts match once both phones are in sync.': 'Feeds, nappies, habits done, habits and deletions are shared. Settings, reminders, the theme and device names stay on each phone. The counts match once both phones are in sync.',
+  'Your pills': 'Your habits',
+  'Dose times worked out, with alarms': 'Times worked out, with reminders',
+  'Get a reminder when the next feed is due, and when it is time for your pills.': 'Get a reminder when the next feed is due, and when it is time for your habits.',
+  'Get an alarm when the next feed is due, and when it is time for your pills.': 'Get an alarm when the next feed is due, and when it is time for your habits.',
+  'Add a pill': 'Add a habit',
+  'Add another pill': 'Add another habit',
+  'Imported {entries} entries, {meds} pills, {babies} profiles and {routines} routines and {completions} completions, {growth} growth entries': 'Imported {entries} entries, {meds} habits, {babies} profiles and {routines} routines and {completions} completions, {growth} growth entries',
+  'Imported {entries} entries, {pills} pills, {profiles} profiles, {routines} routines and {completions} completions': 'Imported {entries} entries, {pills} habits, {profiles} profiles, {routines} routines and {completions} completions',
 };

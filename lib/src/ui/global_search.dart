@@ -780,10 +780,10 @@ class _ResultRow extends StatelessWidget {
     'routine-history': Icons.history_rounded,
   };
 
-  static const _pageIcons = [
+  static List<IconData> get _pageIcons => [
     Icons.home_outlined,
     Icons.history_rounded,
-    Icons.medication_outlined,
+    Glyphs.pillOutlinedIcon,
     Icons.event_repeat_rounded,
     Icons.photo_album_outlined,
   ];

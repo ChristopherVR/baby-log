@@ -246,7 +246,7 @@ class Reminders {
         : AndroidNotificationDetails(
             'reminders',
             'Reminders',
-            channelDescription: 'Feed and pill reminders',
+            channelDescription: tr('Feed and pill reminders'),
             importance: Importance.max,
             priority: Priority.high,
             category: AndroidNotificationCategory.reminder,
@@ -609,6 +609,8 @@ class Reminders {
           title: 'Pill time: ${med.name}',
           body: med.dose.isEmpty
               ? 'Time to take your ${med.name}'
+              : Distribution.play
+              ? med.dose
               : 'Take ${med.dose}',
           alarm: alarm,
         );
