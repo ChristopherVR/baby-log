@@ -40,8 +40,9 @@ the core purpose of the app.
 
 ## Demo video
 
-Shows: the setting being turned on (with its notification), one device logging a feed while the
-other has the app in the background, and the entry arriving on the other device without it
-being opened. Recorded on two Windows copies of the Play build (Play wording).
+Shows one device logging a nappy change while the other has the app in the background, and the
+entry already being there when the other device is brought back. Recorded on two Windows copies
+of the Play build (Play wording); a closing card describes the Android setting and its ongoing
+notification, which the recording itself does not show.
 
 https://github.com/ChristopherVR/baby-log/releases/download/v1.5.27/nestling-background-sync-demo.mp4
