@@ -437,6 +437,21 @@ class _SettingsPageState extends State<SettingsPage> {
     addSection(
       'Reminders',
       [
+        if (Distribution.play && !app.reminders.exactAllowed)
+          (
+            terms: ['Allow exact reminders', 'Alarms & reminders'],
+            child: _Tile(
+              icon: Icons.alarm_on_rounded,
+              tone: 1,
+              title: 'Allow exact reminders',
+              subtitle:
+                  'Without this, Android can delay reminders by several minutes',
+              value: '',
+              onTap: () async {
+                await app.reminders.openExactAccessSettings();
+              },
+            ),
+          ),
         (
           terms: [
             'Feed reminder',
@@ -1306,6 +1321,20 @@ class _PeersCard extends StatelessWidget {
           value: app.autoSync,
           onChanged: app.setAutoSync,
         ),
+        if (BackgroundSync.periodicSupported)
+          SwitchListTile(
+            contentPadding: const EdgeInsets.fromLTRB(16, 4, 12, 4),
+            secondary: const _Badge(Icons.cloud_sync_rounded),
+            title: const LText(
+              'Sync in the background',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            subtitle: const LText(
+              'Checks for the other phone’s changes about every 15 minutes',
+            ),
+            value: app.backgroundSync,
+            onChanged: app.setBackgroundSync,
+          ),
         if (BackgroundSync.supported)
           SwitchListTile(
             contentPadding: const EdgeInsets.fromLTRB(16, 4, 12, 4),

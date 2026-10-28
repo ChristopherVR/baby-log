@@ -26,9 +26,26 @@ class BackgroundSync {
     }
   }
 
-  static Future<void> start() => _call('start');
+  /// Play build: no foreground service, but WorkManager wakes the app about
+  /// every 15 minutes to sync with the paired phones (see PeriodicSync.kt).
+  static bool get periodicSupported => Platform.isAndroid && Distribution.play;
 
-  static Future<void> stop() => _call('stop');
+  static Future<void> start() =>
+      _call(periodicSupported ? 'schedulePeriodicSync' : 'start');
+
+  static Future<void> stop() =>
+      _call(periodicSupported ? 'cancelPeriodicSync' : 'stop');
+
+  /// Runs [sync] whenever the Android side asks for a background sync.
+  /// Register early: the request can arrive while the app is still loading.
+  static void onSyncRequest(Future<void> Function() sync) {
+    if (!Platform.isAndroid) return;
+    _channel.setMethodCallHandler((call) async {
+      if (call.method != 'syncNow') throw MissingPluginException();
+      await sync();
+      return null;
+    });
+  }
 
   /// Whether Android lets the app keep its network connection while the phone sleeps.
   static Future<bool> isBatteryExempt() async => await _call<bool>('isBatteryExempt') ?? true;

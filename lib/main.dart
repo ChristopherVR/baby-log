@@ -9,6 +9,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 
+import 'src/background.dart';
 import 'src/notifications.dart';
 import 'src/store.dart';
 import 'src/sync.dart';
@@ -40,11 +41,17 @@ Future<void> main(List<String> args) async {
     if (a.startsWith('--profile=')) profile = a.substring('--profile='.length);
     if (a.startsWith('--pair=')) pair = a.substring('--pair='.length);
   }
-  // Android's sync service starts the app with --headless (no screen yet).
+  // Android's sync service and background sync job start the app with
+  // --headless (no screen yet).
+  final loaded = Completer<AppState>();
+  BackgroundSync.onSyncRequest(() async {
+    await (await loaded.future).syncAll(quiet: true);
+  });
   final state = await AppState.load(
     profile: profile,
     foreground: !args.contains('--headless'),
   );
+  loaded.complete(state);
   runApp(BabyApp(state: state, profile: profile));
 
   final p = pair?.split(':');

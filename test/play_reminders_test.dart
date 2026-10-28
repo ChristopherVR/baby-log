@@ -34,4 +34,9 @@ void main() {
     Distribution.play = true;
     expect(BackgroundSync.supported, isFalse);
   });
+
+  test('GitHub build does not use the periodic sync job', () {
+    Distribution.play = false;
+    expect(BackgroundSync.periodicSupported, isFalse);
+  });
 }

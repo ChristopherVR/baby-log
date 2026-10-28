@@ -214,7 +214,33 @@ class Reminders {
     required bool alarm,
     required ReminderInfo info,
   }) => NotificationDetails(
-    android: alarm && !Distribution.play
+    android: Distribution.play && info.kind != 'routine'
+        // No restricted permission needed: a normal notification that uses the
+        // alarm volume, repeats its sound until dealt with and has Stop/Snooze.
+        ? AndroidNotificationDetails(
+            'reminders_loud',
+            'Reminders',
+            channelDescription: tr('Feed and pill reminders'),
+            importance: Importance.max,
+            priority: Priority.max,
+            category: AndroidNotificationCategory.reminder,
+            audioAttributesUsage: AudioAttributesUsage.alarm,
+            sound: const UriAndroidNotificationSound(
+              'content://settings/system/alarm_alert',
+            ),
+            // FLAG_INSISTENT: the sound repeats until the reminder is dismissed.
+            additionalFlags: Int32List.fromList(const [4]),
+            enableVibration: true,
+            timeoutAfter: 2 * 60 * 1000,
+            actions: [
+              AndroidNotificationAction(
+                snoozeAction,
+                tr('Snooze $snoozeMinutes min'),
+              ),
+              AndroidNotificationAction(stopAction, tr('Stop')),
+            ],
+          )
+        : alarm && !Distribution.play
         ? AndroidNotificationDetails(
             'alarms',
             'Alarms',
@@ -285,6 +311,7 @@ class Reminders {
         onDidReceiveBackgroundNotificationResponse: reminderActionInBackground,
       );
       _ready = true;
+      await refreshExactAccess();
       final launch = await _plugin.getNotificationAppLaunchDetails();
       if (launch?.didNotificationLaunchApp == true &&
           launch!.notificationResponse?.actionId == null) {
@@ -312,6 +339,33 @@ class Reminders {
   }
 
   bool _exactAsked = false;
+
+  /// Play build: whether "Alarms & reminders" access is on. Without it
+  /// reminders can arrive minutes late, so Settings asks for it.
+  bool exactAllowed = true;
+
+  /// Re-reads [exactAllowed] (the user may have just changed it in system
+  /// settings). Returns true if it changed.
+  Future<bool> refreshExactAccess() async {
+    if (!Distribution.play || !Platform.isAndroid || !_ready) return false;
+    try {
+      final allowed = await _android?.canScheduleExactNotifications() ?? true;
+      if (allowed == exactAllowed) return false;
+      exactAllowed = allowed;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Opens the system "Alarms & reminders" screen on request. Never throws.
+  Future<void> openExactAccessSettings() async {
+    try {
+      await _android?.requestExactAlarmsPermission();
+    } catch (e) {
+      debugPrint('Exact alarm permission request failed: $e');
+    }
+  }
 
   /// Asks Android for permission to show notifications (once; later calls do nothing).
   /// The Play build also asks, once per run, for "Alarms & reminders" access.
@@ -426,6 +480,7 @@ class Reminders {
   }) {
     final plan = [
       AppLanguage.code,
+      exactAllowed,
       feedReminderAt?.millisecondsSinceEpoch,
       feedAlarm,
       pillAlarm,

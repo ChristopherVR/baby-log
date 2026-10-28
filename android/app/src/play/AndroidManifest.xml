@@ -12,5 +12,7 @@
 
     <application>
         <service android:name=".SyncService" tools:node="remove" />
+        <!-- WorkManager only needs this for setForeground(), which is not used -->
+        <service android:name="androidx.work.impl.foreground.SystemForegroundService" tools:node="remove" />
     </application>
 </manifest>

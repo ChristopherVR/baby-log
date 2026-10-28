@@ -412,7 +412,9 @@ class AppState extends ChangeNotifier {
     // Persist a newly made device id and sync code straight away.
     if (!hadIds || renamed) state._save();
     await state.reminders.init();
-    if (state.setupDone) unawaited(state.reminders.requestPermission());
+    if (state.setupDone && foreground) {
+      unawaited(state.reminders.requestPermission());
+    }
     state._rescheduleReminders();
     await state.server.start(
       onInfo: state._handleInfo,
@@ -435,6 +437,13 @@ class AppState extends ChangeNotifier {
   void appResumed() {
     startedHeadless = false;
     _rescheduleReminders();
+    unawaited(
+      reminders.refreshExactAccess().then((changed) {
+        if (!changed) return;
+        notifyListeners();
+        _rescheduleReminders();
+      }),
+    );
     _syncPeriodic ??= Timer.periodic(
       const Duration(minutes: 2),
       (_) => syncAll(quiet: true),
