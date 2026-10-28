@@ -42,14 +42,6 @@ object Background {
                     app.stopService(Intent(app, SyncService::class.java))
                     result.success(null)
                 }
-                "schedulePeriodicSync" -> {
-                    PeriodicSync.schedule(app)
-                    result.success(null)
-                }
-                "cancelPeriodicSync" -> {
-                    PeriodicSync.cancel(app)
-                    result.success(null)
-                }
                 "leaveLockScreen" -> {
                     MainActivity.current?.get()?.let { it.runOnUiThread { it.setLockScreen(false) } }
                     result.success(null)

@@ -631,9 +631,6 @@ const afrikaans = <String, String>{
   'Shows a quiet notification while on':
       'Wys ’n stil kennisgewing terwyl dit aan is',
   'Allow background use': 'Laat agtergrondgebruik toe',
-  'Sync in the background': 'Sinchroniseer in die agtergrond',
-  'Checks for the other phone’s changes about every 15 minutes':
-      'Kyk ongeveer elke 15 minute vir die ander foon se veranderinge',
   'Allow exact reminders': 'Laat presiese herinnerings toe',
   'Alarms & reminders': 'Alarms en herinnerings',
   'Without this, Android can delay reminders by several minutes':

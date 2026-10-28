@@ -1321,20 +1321,6 @@ class _PeersCard extends StatelessWidget {
           value: app.autoSync,
           onChanged: app.setAutoSync,
         ),
-        if (BackgroundSync.periodicSupported)
-          SwitchListTile(
-            contentPadding: const EdgeInsets.fromLTRB(16, 4, 12, 4),
-            secondary: const _Badge(Icons.cloud_sync_rounded),
-            title: const LText(
-              'Sync in the background',
-              style: TextStyle(fontWeight: FontWeight.w700),
-            ),
-            subtitle: const LText(
-              'Checks for the other phone’s changes about every 15 minutes',
-            ),
-            value: app.backgroundSync,
-            onChanged: app.setBackgroundSync,
-          ),
         if (BackgroundSync.supported)
           SwitchListTile(
             contentPadding: const EdgeInsets.fromLTRB(16, 4, 12, 4),
@@ -1347,7 +1333,7 @@ class _PeersCard extends StatelessWidget {
             value: app.backgroundSync,
             onChanged: app.setBackgroundSync,
           ),
-        if (BackgroundSync.supported &&
+        if (BackgroundSync.batteryExemptSupported &&
             app.backgroundSync &&
             !app.batteryExempt)
           ListTile(

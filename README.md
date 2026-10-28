@@ -80,9 +80,9 @@ application ID:
 - `play` (`io.github.christophervr.nestling`): has no APK installer, installation permission or update FileProvider. The version
   dialog opens Google Play, which manages updates. Play releases require a separate upload
   key and never fall back to debug signing.
-  To pass Play review without special declarations, it has no foreground sync service
-  (instead a WorkManager job syncs about every 15 minutes in the background, plus whenever the
-  app is open), no full-screen alarms (reminders are notifications that use the alarm volume,
+  It keeps the same foreground sync service as the GitHub build (`specialUse`, declared in Play
+  Console with a demo video; see `store/fgs-declaration.md`) but never asks for the battery
+  optimisation exemption. It has no full-screen alarms (reminders are notifications that use the alarm volume,
   repeat their sound for up to 2 minutes and have Stop/Snooze buttons), and uses the
   user-granted exact alarm permission (`SCHEDULE_EXACT_ALARM`, "Alarms & reminders") instead
   of `USE_EXACT_ALARM`. Without that access, reminders fall back to inexact timing, and
@@ -138,7 +138,8 @@ While Google still treats the app as a draft (before its first review), the API 
 draft releases: set the repository variable `PLAY_RELEASE_STATUS` to `draft` and roll each one
 out in Play Console, then remove the variable once the app has been reviewed.
 
-The Play build has no foreground sync service (periodic WorkManager sync instead), no full-screen
+The Play build's foreground sync service needs the Foreground service declaration in Play Console
+(App content → Foreground service permissions). It has no full-screen
 reminders and no `USE_EXACT_ALARM`; it schedules reminders exactly only when the user allows **Alarms &
 reminders**. Store listing, privacy policy (`PRIVACY.md`), Data safety and other app content are
 set up in Play Console; generating an AAB does not confirm Google Play approval.

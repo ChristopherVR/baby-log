@@ -10,12 +10,15 @@ import 'distribution.dart';
 class BackgroundSync {
   static const _channel = MethodChannel('babylog/background');
 
-  static bool get supported => Platform.isAndroid && !Distribution.play;
+  static bool get supported => Platform.isAndroid;
+
+  /// Play policy reserves the battery optimisation exemption for other kinds
+  /// of apps, so only the GitHub build asks for it.
+  static bool get batteryExemptSupported => supported && !Distribution.play;
 
   static Future<T?> _call<T>(String method, [Object? args]) async {
     if (!Platform.isAndroid) return null;
-    // The Play build has no sync service, and no way to start or tune it.
-    if (!supported && const {'start', 'stop', 'isBatteryExempt', 'requestBatteryExempt'}.contains(method)) {
+    if (!batteryExemptSupported && const {'isBatteryExempt', 'requestBatteryExempt'}.contains(method)) {
       return null;
     }
     try {
@@ -26,26 +29,9 @@ class BackgroundSync {
     }
   }
 
-  /// Play build: no foreground service, but WorkManager wakes the app about
-  /// every 15 minutes to sync with the paired phones (see PeriodicSync.kt).
-  static bool get periodicSupported => Platform.isAndroid && Distribution.play;
+  static Future<void> start() => _call('start');
 
-  static Future<void> start() =>
-      _call(periodicSupported ? 'schedulePeriodicSync' : 'start');
-
-  static Future<void> stop() =>
-      _call(periodicSupported ? 'cancelPeriodicSync' : 'stop');
-
-  /// Runs [sync] whenever the Android side asks for a background sync.
-  /// Register early: the request can arrive while the app is still loading.
-  static void onSyncRequest(Future<void> Function() sync) {
-    if (!Platform.isAndroid) return;
-    _channel.setMethodCallHandler((call) async {
-      if (call.method != 'syncNow') throw MissingPluginException();
-      await sync();
-      return null;
-    });
-  }
+  static Future<void> stop() => _call('stop');
 
   /// Whether Android lets the app keep its network connection while the phone sleeps.
   static Future<bool> isBatteryExempt() async => await _call<bool>('isBatteryExempt') ?? true;

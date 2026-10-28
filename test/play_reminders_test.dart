@@ -30,13 +30,8 @@ void main() {
     expect(find.text('Alarm'), findsNothing);
   });
 
-  test('Play build has no background sync service', () {
+  test('Play build never asks for the battery optimisation exemption', () {
     Distribution.play = true;
-    expect(BackgroundSync.supported, isFalse);
-  });
-
-  test('GitHub build does not use the periodic sync job', () {
-    Distribution.play = false;
-    expect(BackgroundSync.periodicSupported, isFalse);
+    expect(BackgroundSync.batteryExemptSupported, isFalse);
   });
 }

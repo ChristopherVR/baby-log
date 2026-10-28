@@ -92,9 +92,6 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
-    // Play build only: periodic background sync without a foreground service.
-    "playImplementation"("androidx.work:work-runtime:2.10.0")
-    "playImplementation"("androidx.concurrent:concurrent-futures:1.2.0")
 }
 
 // Check the actual task graph, including aggregate release tasks, before any

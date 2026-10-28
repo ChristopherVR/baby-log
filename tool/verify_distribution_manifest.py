@@ -11,9 +11,10 @@ PACKAGES = {"github": "com.babyapp.baby_app", "play": "io.github.christophervr.n
 PLAY_FORBIDDEN = (
     "USE_EXACT_ALARM",
     "USE_FULL_SCREEN_INTENT",
-    "FOREGROUND_SERVICE_SPECIAL_USE",
     "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
 )
+# Both builds keep syncing in the background (declared in Play Console).
+PLAY_REQUIRED = ("FOREGROUND_SERVICE_SPECIAL_USE",)
 GITHUB_REQUIRED = ("USE_EXACT_ALARM", "FOREGROUND_SERVICE_SPECIAL_USE")
 
 
@@ -33,10 +34,9 @@ def verify_manifest(source: str, flavor: str) -> None:
         found = [name for name in PLAY_FORBIDDEN if name in names]
         if found:
             raise ValueError(f"Play manifest must not declare {', '.join(found)}")
-    else:
-        missing = [name for name in GITHUB_REQUIRED if name not in names]
-        if missing:
-            raise ValueError(f"GitHub manifest must declare {', '.join(missing)}")
+    missing = [name for name in (PLAY_REQUIRED if flavor == "play" else GITHUB_REQUIRED) if name not in names]
+    if missing:
+        raise ValueError(f"{flavor} manifest must declare {', '.join(missing)}")
 
 
 def main() -> None:
