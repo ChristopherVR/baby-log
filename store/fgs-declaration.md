@@ -42,4 +42,6 @@ the core purpose of the app.
 
 Shows: the setting being turned on (with its notification), one device logging a feed while the
 other has the app in the background, and the entry arriving on the other device without it
-being opened. Link: see the GitHub release `v1.5.27` asset `nestling-background-sync-demo.mp4`.
+being opened. Recorded on two Windows copies of the Play build (Play wording).
+
+https://github.com/ChristopherVR/baby-log/releases/download/v1.5.27/nestling-background-sync-demo.mp4
