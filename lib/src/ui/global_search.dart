@@ -840,7 +840,7 @@ class _ResultRow extends StatelessWidget {
       ),
       SearchKind.routine => icon(
         Icons.event_repeat_rounded,
-        Baby.pillSoft,
+        Baby.primarySoft,
         Baby.primary,
       ),
       SearchKind.growth => icon(

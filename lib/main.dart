@@ -437,8 +437,12 @@ class _ShellState extends State<Shell> {
   ) => Scaffold(
     appBar: AppBar(
       toolbarHeight: 68,
+      // The Today hero already names the baby; the bar just says where you are.
       title: LText(
-        widget.profile.isEmpty ? title : '$title [${widget.profile}]',
+        [
+          if (tab == ShellTabs.today) 'Today' else title,
+          if (widget.profile.isNotEmpty) '[${widget.profile}]',
+        ].join(' '),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
@@ -465,7 +469,8 @@ class _ShellState extends State<Shell> {
     body: Column(
       key: const ValueKey('shell-content'),
       children: [
-        const BabyPicker(),
+        if (tab != ShellTabs.today || AppScope.of(context).babies.length > 1)
+          const BabyPicker(),
         Expanded(child: pages),
       ],
     ),

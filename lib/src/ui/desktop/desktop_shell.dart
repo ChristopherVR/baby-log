@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../baby_photo.dart';
 import '../common.dart';
 import '../growth_page.dart';
+import '../nestling_mark.dart';
 import '../routines_page.dart';
 import '../settings_page.dart';
 import '../theme.dart';
@@ -142,12 +143,13 @@ class _Brand extends StatelessWidget {
     final logo = Container(
       width: 32,
       height: 32,
-      alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: Baby.primary,
+        gradient: LinearGradient(colors: Baby.hero),
         borderRadius: BorderRadius.circular(DesktopTokens.radius),
       ),
-      child: Glyphs.heart(18, Baby.onPrimary),
+      child: const CustomPaint(
+        painter: NestlingMark(layer: MarkLayer.bare, sparkle: Colors.white),
+      ),
     );
     if (!expanded) return Center(child: logo);
     return Row(
@@ -157,7 +159,7 @@ class _Brand extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: LText.raw(
-            profile.isEmpty ? 'Baby Log' : 'Baby Log [$profile]',
+            profile.isEmpty ? 'Nestling' : 'Nestling [$profile]',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(

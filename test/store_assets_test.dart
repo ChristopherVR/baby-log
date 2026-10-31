@@ -27,7 +27,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
-import '../store/nestling_mark.dart';
+import 'package:baby_app/src/ui/nestling_mark.dart';
 
 final _root = Directory.current.path;
 String _p(String rel) => '$_root/$rel';
@@ -56,11 +56,11 @@ Future<void> _loadFonts() async {
       '${Uri.file('$_root/.dart_tool/package_config.json').resolve(symbols['rootUri'] as String)}',
     ),
   ).path;
-  await _loadFont('Nunito', [
+  await _loadFont('Figtree', [
     for (final w in [400, 600, 700, 800])
-      File(_p('.dart_tool/store_fonts/Nunito-$w.ttf')).existsSync()
-          ? _p('.dart_tool/store_fonts/Nunito-$w.ttf')
-          : _p('assets/fonts/Nunito-$w.ttf'),
+      File(_p('.dart_tool/store_fonts/Figtree-$w.ttf')).existsSync()
+          ? _p('.dart_tool/store_fonts/Figtree-$w.ttf')
+          : _p('assets/fonts/Figtree-$w.ttf'),
   ]);
   await _loadFont('Roboto', ['$icons/roboto-regular.ttf']);
   await _loadFont('MaterialIcons', ['$icons/materialicons-regular.otf']);
@@ -143,7 +143,7 @@ void _text(
     text: TextSpan(
       text: text,
       style: TextStyle(
-        fontFamily: 'Nunito',
+        fontFamily: 'Figtree',
         fontSize: size,
         fontWeight: weight,
         color: color,
@@ -162,7 +162,7 @@ Size _measure(String text, double size, FontWeight weight) {
     text: TextSpan(
       text: text,
       style: TextStyle(
-        fontFamily: 'Nunito',
+        fontFamily: 'Figtree',
         fontSize: size,
         fontWeight: weight,
       ),
@@ -376,7 +376,7 @@ void main() {
             text: TextSpan(
               text: caption,
               style: const TextStyle(
-                fontFamily: 'Nunito',
+                fontFamily: 'Figtree',
                 fontSize: 60,
                 fontWeight: FontWeight.w800,
                 color: Colors.white,

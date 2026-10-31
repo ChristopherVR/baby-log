@@ -4,3 +4,5 @@
 tags:
   store:
     skip: "Store asset generator (flutter test --run-skipped --tags store)"
+  preview:
+    skip: "UI preview renderer (flutter test --run-skipped --tags preview)"

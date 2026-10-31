@@ -123,7 +123,7 @@ class _HistoryChartsState extends State<HistoryCharts> {
           hourly ? 'Sleep hours by hour' : 'Sleep hours per day',
           stats.sleepHours,
           stats.sleepByHour,
-          Baby.pill,
+          Baby.sleep,
           unit: 'h',
         ),
         if (!hourly) ...[

@@ -204,6 +204,10 @@ const afrikaans = <String, String>{
       "Kies ’n JPG-, PNG- of WebP-foto kleiner as 20 MB.",
   "Every little moment matters": "Elke klein oomblik maak saak",
   "{days} days old": "{days} dae oud",
+  "Born today": "Vandag gebore",
+  "1 day old": "1 dag oud",
+  "{weeks} weeks old": "{weeks} weke oud",
+  "{weeks} weeks, {days} days old": "{weeks} weke, {days} dae oud",
   "{months} months old": "{months} maande oud",
   "{months} months": "{months} maande",
   "GROWING TOGETHER": "GROEI SAAM",
@@ -346,6 +350,46 @@ const afrikaans = <String, String>{
   'Get started': 'Begin',
   'Start using Nestling': 'Begin Nestling gebruik',
   'Welcome to Nestling': 'Welkom by Nestling',
+  'Continue': 'Gaan voort',
+  'Feeds, nappies, sleep and growth in one calm place, shared with everyone who helps.': 'Voedings, doeke, slaap en groei op een rustige plek, gedeel met almal wat help.',
+  'Joining a partner? Connect their phone':
+      'Sluit jy by jou maat aan? Koppel aan hulle foon',
+  'What’s your baby’s name?': 'Wat is jou baba se naam?',
+  'A first name or a nickname is fine.': '’n Voornaam of bynaam is reg.',
+  'When was {name} born?': 'Wanneer is {name} gebore?',
+  'Used to show their age in weeks and months.':
+      'Daarmee wys ons hulle ouderdom in weke en maande.',
+  'Add a photo of {name}': 'Voeg ’n foto van {name} by',
+  'It shows on Today. Photos stay on your own devices.':
+      'Dit wys op Vandag. Foto’s bly op jou eie toestelle.',
+  'How is {name} fed?': 'Hoe word {name} gevoed?',
+  'This only sets where a new feed starts. You can log any kind.':
+      'Dit bepaal net waar ’n nuwe voeding begin. Jy kan enige soort aanteken.',
+  'Breastfeeding': 'Borsvoeding',
+  'Nestling suggests which side is next':
+      'Nestling stel voor watter kant volgende is',
+  'Log how much they drank': 'Teken aan hoeveel hulle gedrink het',
+  'A bit of both': '’n Bietjie van albei',
+  'Breast and bottle, whatever works': 'Bors en bottel, wat ook al werk',
+  '{name}’s nest is ready': '{name} se nes is gereed',
+  'Switch between babies at the top of Today.':
+      'Wissel tussen babas bo-aan Vandag.',
+  'Next, we’ll show you how to log the first feed. Reminders, sharing and themes are in Settings whenever you want them.': 'Volgende wys ons jou hoe om die eerste voeding aan te teken. Herinneringe, deel en temas is in Instellings wanneer jy dit nodig het.',
+  'Your baby': 'Jou baba',
+  'Add a birthday': 'Voeg ’n verjaarsdag by',
+  'Since last feed': 'Sedert laaste voeding',
+  'Tap Feed below when the next one starts':
+      'Tik Voeding hieronder wanneer die volgende een begin',
+  'None yet': 'Nog geen',
+  'Log your first feed': 'Teken jou eerste voeding aan',
+  'Tap Feed when the next feed starts. Use the timer, or just pick a side and save.': 'Tik Voeding wanneer die volgende voeding begin. Gebruik die tydhouer, of kies net ’n kant en stoor.',
+  'Nice! Now a nappy': 'Mooi! Nou ’n doek',
+  'Tap Nappy at the next change: pee, poo or both, in one tap.': 'Tik Doek by die volgende verskoning: piepie, poef of albei, met een tik.',
+  'That’s the basics': 'Dis die basiese dinge',
+  'Everything you log shows on Today and in History. Reminders and sharing are in Settings.': 'Alles wat jy aanteken, wys op Vandag en in Geskiedenis. Herinneringe en deel is in Instellings.',
+  'Skip tour': 'Slaan toer oor',
+  'Both phones keep the same log over your home Wi‑Fi.':
+      'Albei fone hou dieselfde logboek oor jou tuis-Wi‑Fi.',
   'Everything about the little one in one place, in a single tap.':
       'Alles oor jou kleinding op een plek, met een tik.',
   'Feeds': 'Voedings',

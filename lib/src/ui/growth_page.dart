@@ -15,13 +15,22 @@ String babyAge(BabyProfile baby, [DateTime? at]) {
   if (birth == null) return tr('Every little moment matters');
   final date = at ?? DateTime.now();
   final months = ageInMonths(birth, date);
-  if (months == 0) {
+  // Newborns are counted in days, then weeks, until about three months.
+  if (months < 3) {
     final days = DateTime(
       date.year,
       date.month,
       date.day,
-    ).difference(birth).inDays;
-    return tr('$days days old');
+    ).difference(DateTime(birth.year, birth.month, birth.day)).inDays;
+    if (days <= 0) return tr('Born today');
+    if (days == 1) return tr('1 day old');
+    if (days < 14) return tr('$days days old');
+    final weeks = days ~/ 7, rest = days % 7;
+    if (weeks < 13) {
+      return rest == 0
+          ? tr('$weeks weeks old')
+          : tr('$weeks weeks, $rest days old');
+    }
   }
   return tr('$months months old');
 }
@@ -189,7 +198,7 @@ class GrowthPage extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
         children: [
           Card(
-            color: Baby.pillSoft,
+            color: Baby.primarySoft,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(18, 16, 6, 16),
               child: Row(
@@ -252,7 +261,7 @@ class GrowthPage extends StatelessWidget {
                     unit: 'kg',
                     icon: Icons.monitor_weight_outlined,
                     color: Baby.primary,
-                    soft: Baby.pillSoft,
+                    soft: Baby.primarySoft,
                     latest: weight,
                     value: (e) => e.weightKg,
                   ),
@@ -353,7 +362,7 @@ class _EmptyGrowth extends StatelessWidget {
         children: [
           IconBubble(
             glyph: _iconGlyph(Icons.auto_stories_outlined),
-            color: Baby.pillSoft,
+            color: Baby.primarySoft,
             iconColor: Baby.primary,
             size: 64,
           ),
@@ -883,7 +892,7 @@ class _GrowthPainter extends CustomPainter {
       final text = TextPainter(
         text: TextSpan(
           text: label,
-          style: TextStyle(fontFamily: 'Nunito', fontSize: 11, color: color),
+          style: TextStyle(fontFamily: Baby.font, fontSize: 11, color: color),
         ),
         textDirection: TextDirection.ltr,
       )..layout();

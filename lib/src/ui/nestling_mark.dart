@@ -35,8 +35,15 @@ enum MarkLayer {
 
 /// Paints the mark into a square of side [size].
 class NestlingMark extends CustomPainter {
-  const NestlingMark({this.layer = MarkLayer.full, this.rounded = 0});
+  const NestlingMark({
+    this.layer = MarkLayer.full,
+    this.rounded = 0,
+    this.sparkle = MarkColors.cream,
+  });
   final MarkLayer layer;
+
+  /// Colour of the little stars; cream suits the lavender icon background.
+  final Color sparkle;
 
   /// Corner radius as a fraction of the side, for legacy / Windows icons.
   final double rounded;
@@ -111,9 +118,9 @@ class NestlingMark extends CustomPainter {
     );
     canvas.drawPath(moon, fill(MarkColors.moon));
     // Stars.
-    _spark(canvas, const Offset(284, 292), 30, fill(MarkColors.cream));
-    _spark(canvas, const Offset(850, 440), 20, fill(MarkColors.cream));
-    _spark(canvas, const Offset(205, 480), 15, fill(MarkColors.cream));
+    _spark(canvas, const Offset(284, 292), 30, fill(sparkle));
+    _spark(canvas, const Offset(850, 440), 20, fill(sparkle));
+    _spark(canvas, const Offset(205, 480), 15, fill(sparkle));
 
     // Back rim of the nest.
     final rimRect = Rect.fromCenter(
@@ -250,5 +257,5 @@ class NestlingMark extends CustomPainter {
 
   @override
   bool shouldRepaint(NestlingMark old) =>
-      old.layer != layer || old.rounded != rounded;
+      old.layer != layer || old.rounded != rounded || old.sparkle != sparkle;
 }

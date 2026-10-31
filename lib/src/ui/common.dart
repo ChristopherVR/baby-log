@@ -193,8 +193,8 @@ class _PooPainter extends CustomPainter {
   ),
   EntryType.sleep => (
     glyph: Glyphs.sleep,
-    soft: Baby.pillSoft,
-    strong: Baby.pill,
+    soft: Baby.sleepSoft,
+    strong: Baby.sleep,
   ),
   EntryType.nappy => nappyLook(e.nappy ?? NappyKind.pee),
   EntryType.pill => (
@@ -435,13 +435,10 @@ class IconBubble extends StatelessWidget {
     width: size,
     height: size,
     alignment: Alignment.center,
-    // Rounded squares on desktop, circles on the phone.
-    decoration: Desktop.of(context)
-        ? BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(size * 0.28),
-          )
-        : BoxDecoration(color: color, shape: BoxShape.circle),
+    decoration: BoxDecoration(
+      color: color,
+      borderRadius: BorderRadius.circular(size * 0.32),
+    ),
     child: glyph(size * 0.52, iconColor),
   );
 }
@@ -500,18 +497,25 @@ class SectionTitle extends StatelessWidget {
     return Padding(
       padding: desktop
           ? const EdgeInsets.fromLTRB(2, 20, 2, 8)
-          : const EdgeInsets.fromLTRB(6, 24, 6, 10),
+          : const EdgeInsets.fromLTRB(4, 22, 4, 10),
       child: Row(
         children: [
           Expanded(
             child: LText(
               text,
-              style: TextStyle(
-                fontSize: desktop ? 13 : 14,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.3,
-                color: Baby.muted,
-              ),
+              style: desktop
+                  ? TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.3,
+                      color: Baby.muted,
+                    )
+                  : TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.2,
+                      color: Baby.ink,
+                    ),
             ),
           ),
           ?trailing,
@@ -579,31 +583,42 @@ class ActionTile extends StatelessWidget {
     if (Desktop.of(context)) return _desktop(context);
     return PressScale(
       child: Material(
-        color: soft,
-        borderRadius: BorderRadius.circular(28),
-        clipBehavior: Clip.antiAlias,
+        type: MaterialType.transparency,
         child: InkWell(
           onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(10, 20, 10, 16),
+            padding: const EdgeInsets.fromLTRB(4, 12, 4, 10),
             child: Column(
               children: [
-                IconBubble(
-                  glyph: glyph,
-                  color: Baby.card,
-                  iconColor: strong,
-                  size: 60,
+                // Shrinks to fit four across on the narrowest phones.
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final size = constraints.maxWidth.clamp(36.0, 62.0);
+                    return Container(
+                      width: size,
+                      height: size,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: soft,
+                        shape: BoxShape.circle,
+                      ),
+                      child: glyph(size * 0.48, strong),
+                    );
+                  },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 LText(
                   label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w700,
                     color: Baby.ink,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 1),
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 250),
                   switchInCurve: Curves.easeOutCubic,
@@ -612,10 +627,11 @@ class ActionTile extends StatelessWidget {
                     key: ValueKey(hint),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: strong,
+                      fontWeight: FontWeight.w600,
+                      color: Baby.muted,
                     ),
                   ),
                 ),
@@ -713,7 +729,7 @@ class EntryTile extends StatelessWidget {
               glyph: look.glyph,
               color: look.soft,
               iconColor: look.strong,
-              size: desktop ? 34 : 42,
+              size: desktop ? 34 : 40,
             ),
             SizedBox(width: desktop ? 12 : 14),
             Expanded(
@@ -790,7 +806,7 @@ class ListCard extends StatelessWidget {
             Desktop.of(context)
                 ? Divider(color: Baby.border)
                 : Divider(
-                    indent: 74,
+                    indent: 70,
                     endIndent: 16,
                     color: Baby.line.withValues(alpha: 0.6),
                   ),
@@ -892,20 +908,16 @@ class OptionTile extends StatelessWidget {
     final desktop = Desktop.of(context);
     final radius = desktop ? DesktopTokens.radius + 2 : 20.0;
     return Material(
-      color: selected
-          ? color
-          : desktop
-          ? Baby.card
-          : Baby.line.withValues(alpha: 0.45),
+      color: selected ? color : Baby.card,
       animationDuration: const Duration(milliseconds: 200),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(radius),
         side: BorderSide(
           color: selected
-              ? (glyphColor ?? Baby.feed).withValues(alpha: 0.35)
+              ? (glyphColor ?? Baby.primary).withValues(alpha: 0.55)
               : desktop
               ? Baby.border
-              : Colors.transparent,
+              : Baby.line,
           width: desktop && !selected ? 1 : 1.5,
         ),
       ),
@@ -929,7 +941,7 @@ class OptionTile extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 15,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
               if (badge != null || glyph != null)

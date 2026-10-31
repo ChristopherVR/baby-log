@@ -38,7 +38,7 @@ _Status _statusOf(AppState app, Peer p) {
     return (
       icon: Icons.sync_rounded,
       color: Baby.primary,
-      soft: Baby.pillSoft,
+      soft: Baby.primarySoft,
       text: 'Syncing',
     );
   }
@@ -63,7 +63,7 @@ _Status _statusOf(AppState app, Peer p) {
   return (
     icon: Icons.schedule_rounded,
     color: Baby.muted,
-    soft: Baby.pillSoft,
+    soft: Baby.primarySoft,
     text: p.learnedFromHub ? 'Waiting to connect' : 'Not synced yet',
   );
 }
@@ -90,8 +90,9 @@ class HubMembers extends StatelessWidget {
             vertical: 4,
           ),
           leading: IconBubble(
-            glyph: (s, c) => Icon(Icons.phone_android_rounded, size: s, color: c),
-            color: Baby.pillSoft,
+            glyph: (s, c) =>
+                Icon(Icons.phone_android_rounded, size: s, color: c),
+            color: Baby.primarySoft,
             iconColor: Baby.primary,
             size: 40,
           ),
@@ -111,7 +112,7 @@ class HubMembers extends StatelessWidget {
             ),
             leading: IconBubble(
               glyph: (s, c) => Icon(Icons.group_add_rounded, size: s, color: c),
-              color: Baby.pillSoft,
+              color: Baby.primarySoft,
               iconColor: Baby.muted,
               size: 40,
             ),
@@ -266,7 +267,7 @@ class HubPage extends StatelessWidget {
                               size: s,
                               color: c,
                             ),
-                            color: Baby.pillSoft,
+                            color: Baby.primarySoft,
                             iconColor: Baby.primary,
                             size: 40,
                           ),

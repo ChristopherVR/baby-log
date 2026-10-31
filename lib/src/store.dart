@@ -316,6 +316,17 @@ class AppState extends ChangeNotifier {
 
   /// False until the first-time setup has been finished or skipped.
   bool setupDone = false;
+
+  /// True from the end of setup until the first-log guide on Today has been
+  /// finished or skipped.
+  bool tourPending = false;
+
+  /// Today tips this device has dismissed or acted on.
+  final Set<String> dismissedTips = {};
+
+  /// Answer to "How do you feed?" in setup: a new feed starts on Bottle
+  /// instead of a breast side.
+  bool bottleFirst = false;
   final Map<String, bool> _feedReminderOn = {};
   final Map<String, int> _feedReminderMinutes = {};
   bool get feedReminderOn => _feedReminderOn[activeBabyId] ?? false;
@@ -849,10 +860,29 @@ class AppState extends ChangeNotifier {
     _settingsChanged();
   }
 
-  void completeSetup() {
+  /// [tour] shows the first-log guide on Today; setup asks for it.
+  void completeSetup({bool tour = false}) {
     setupDone = true;
+    tourPending = tour;
     _settingsChanged();
     reminders.requestPermission();
+  }
+
+  void finishTour() {
+    if (!tourPending) return;
+    tourPending = false;
+    _settingsChanged();
+  }
+
+  bool tipShown(String id) => !dismissedTips.contains(id);
+
+  void dismissTip(String id) {
+    if (dismissedTips.add(id)) _settingsChanged();
+  }
+
+  void setBottleFirst(bool on) {
+    bottleFirst = on;
+    _settingsChanged();
   }
 
   void restartSetup() {
@@ -1826,6 +1856,12 @@ class AppState extends ChangeNotifier {
       appearance = j['appearance'] as String? ?? 'light';
       nightLight = j['nightLight'] as bool? ?? true;
       setupDone = j['setupDone'] as bool? ?? false;
+      tourPending = j['tourPending'] as bool? ?? false;
+      dismissedTips.addAll([
+        for (final t in j['dismissedTips'] as List? ?? const [])
+          if (t is String) t,
+      ]);
+      bottleFirst = j['bottleFirst'] as bool? ?? false;
       if (!j.containsKey('babyFeedReminderOn')) {
         _feedReminderOn[defaultBabyId] = j['feedReminderOn'] as bool? ?? false;
       }
@@ -1935,6 +1971,9 @@ class AppState extends ChangeNotifier {
       'appearance': appearance,
       'nightLight': nightLight,
       'setupDone': setupDone,
+      'tourPending': tourPending,
+      'dismissedTips': dismissedTips.toList(),
+      'bottleFirst': bottleFirst,
       'feedReminderOn': _feedReminderOn[defaultBabyId] ?? false,
       'feedReminderMinutes': _feedReminderMinutes[defaultBabyId] ?? 180,
       'feedAlarm': feedAlarm,

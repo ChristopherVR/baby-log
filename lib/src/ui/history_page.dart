@@ -411,7 +411,7 @@ class _ActivityLogState extends State<_ActivityLog>
                     size: size,
                     color: color,
                   ),
-                  color: Baby.pillSoft,
+                  color: Baby.primarySoft,
                   iconColor: Baby.primary,
                   size: 64,
                 ),
@@ -519,7 +519,7 @@ class _ActivityLogState extends State<_ActivityLog>
             (EntryType.feed, 'Feeds', Glyphs.feed, Baby.feed),
             (EntryType.nappy, 'Nappies', Glyphs.nappy, Baby.nappy),
             (EntryType.pill, 'Pills', Glyphs.pill, Baby.pill),
-            (EntryType.sleep, 'Sleep', Glyphs.sleep, Baby.pill),
+            (EntryType.sleep, 'Sleep', Glyphs.sleep, Baby.sleep),
           ])
             Padding(
               padding: const EdgeInsets.only(right: 8),

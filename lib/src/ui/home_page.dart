@@ -1,14 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../models.dart';
 import '../store.dart';
+import 'baby_photo.dart';
 import 'common.dart';
+import 'growth_page.dart';
+import 'hub_page.dart';
 import 'pills_page.dart';
 import 'routines_page.dart';
 import 'settings_page.dart';
+import 'setup/motion.dart';
 import 'sheets.dart';
 import 'theme.dart';
 
@@ -69,105 +72,82 @@ class _HomePageState extends State<HomePage> {
     _setTick(_visible ? const Duration(seconds: 30) : null);
     final today = app.entriesOn(DateTime.now());
 
+    final nap = app.activeSleep;
     final overview = <Widget>[
+      _BabyHero(app: app),
+      const SizedBox(height: 14),
       if (app.timerStart != null) ...[
         _TimerCard(app: app),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
       ],
-      _LastFeedCard(app: app),
-      const SizedBox(height: 16),
-      Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: ActionTile(
-              glyph: Glyphs.feed,
-              label: 'Feed',
-              hint: app.suggestedSide != null
-                  ? 'Next: ${sideLabel(app.suggestedSide!)}'
-                  : 'Log a feed',
-              soft: Baby.feedSoft,
-              strong: Baby.feed,
-              onTap: () => showSheet(context, const FeedSheet()),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: ActionTile(
-              glyph: Glyphs.nappy,
-              label: 'Nappy',
-              hint: app.lastNappy == null
-                  ? 'Pee or poo'
-                  : ago(app.lastNappy!.time),
-              soft: Baby.nappySoft,
-              strong: Baby.nappy,
-              onTap: () => showSheet(context, const NappySheet()),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: ActionTile(
-              glyph: Glyphs.pill,
-              label: 'Pill',
-              hint: _pillHint(app),
-              soft: Baby.pillSoft,
-              strong: Baby.pill,
-              onTap: () => _pillTap(context, app),
-            ),
-          ),
-        ],
-      ),
-      const SizedBox(height: 16),
-      _LastNappyCard(app: app),
-      const SizedBox(height: 16),
       Card(
-        color: Baby.pillSoft,
-        clipBehavior: Clip.antiAlias,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final stacked =
-                constraints.maxWidth <
-                360 * MediaQuery.textScalerOf(context).scale(1);
-            final action = FilledButton(
-              onPressed: () {
-                final nap = app.activeSleep;
-                if (nap == null) {
-                  showSheet(context, const SleepSheet());
-                } else {
-                  app.endSleep(nap);
-                }
-              },
-              child: LText(app.activeSleep == null ? 'Start nap' : 'End nap'),
-            );
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                ListTile(
-                  leading: Glyphs.sleep(28, Baby.pill),
-                  title: LText(app.activeSleep == null ? 'Sleep' : 'Sleeping'),
-                  subtitle: LText(
-                    app.activeSleep == null
-                        ? 'Put down for a nap'
-                        : '${hm(app.activeSleep!.time)} · ${duration(DateTime.now().difference(app.activeSleep!.time))}',
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _Guided(
+                  on: app.tourPending && _guideStep(app) == _Guide.feed,
+                  child: ActionTile(
+                    glyph: app.bottleFirst ? Glyphs.bottle : Glyphs.feed,
+                    label: 'Feed',
+                    hint: app.suggestedSide != null
+                        ? 'Next: ${sideLabel(app.suggestedSide!)}'
+                        : 'Log a feed',
+                    soft: Baby.feedSoft,
+                    strong: Baby.feed,
+                    onTap: () => showSheet(context, const FeedSheet()),
                   ),
-                  trailing: stacked ? null : action,
                 ),
-                if (stacked)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: action,
-                    ),
+              ),
+              Expanded(
+                child: _Guided(
+                  on: app.tourPending && _guideStep(app) == _Guide.nappy,
+                  child: ActionTile(
+                    glyph: Glyphs.nappy,
+                    label: 'Nappy',
+                    hint: 'Pee or poo',
+                    soft: Baby.nappySoft,
+                    strong: Baby.nappy,
+                    onTap: () => showSheet(context, const NappySheet()),
                   ),
-              ],
-            );
-          },
+                ),
+              ),
+              Expanded(
+                child: ActionTile(
+                  glyph: Glyphs.sleep,
+                  label: nap == null ? 'Sleep' : 'End nap',
+                  hint: nap == null
+                      ? 'Start a nap'
+                      : duration(DateTime.now().difference(nap.time)),
+                  soft: Baby.sleepSoft,
+                  strong: Baby.sleep,
+                  onTap: () => _napTap(context, app),
+                ),
+              ),
+              Expanded(
+                child: ActionTile(
+                  glyph: Glyphs.pill,
+                  label: 'Pill',
+                  hint: _pillHint(app),
+                  soft: Baby.pillSoft,
+                  strong: Baby.pill,
+                  onTap: () => _pillTap(context, app),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-      const SizedBox(height: 16),
+      if (app.tourPending) ...[
+        const SizedBox(height: 14),
+        _FirstLogGuide(app: app),
+      ],
+      ..._tips(context, app),
+      const SizedBox(height: 14),
       RoutinePreview(onOpen: widget.onSeeRoutines),
-      const SizedBox(height: 16),
+      const SizedBox(height: 14),
       _ReminderRow(app: app),
     ];
     final activity = <Widget>[
@@ -220,19 +200,8 @@ class _HomePageState extends State<HomePage> {
       builder: (context, constraints) => PullToSync(
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(6, 0, 6, 16),
-              child: LText(
-                '${greeting()} · ${DateFormat('EEEE d MMMM').format(DateTime.now())}',
-                style: TextStyle(
-                  color: Baby.muted,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
             if (constraints.maxWidth >= 900)
               Row(
                 key: const ValueKey('today-columns'),
@@ -261,15 +230,6 @@ class _HomePageState extends State<HomePage> {
         ),
       ),
     );
-  }
-
-  void _napTap(BuildContext context, AppState app) {
-    final nap = app.activeSleep;
-    if (nap == null) {
-      showSheet(context, const SleepSheet());
-    } else {
-      app.endSleep(nap);
-    }
   }
 
   /// Desktop: status cards and quick actions in grids, then today's log
@@ -322,8 +282,8 @@ class _HomePageState extends State<HomePage> {
             detail: nap == null
                 ? 'Put down for a nap'
                 : 'Since ${hm(nap.time)}',
-            color: Baby.pill,
-            soft: Baby.pillSoft,
+            color: Baby.sleep,
+            soft: Baby.sleepSoft,
             glyph: Glyphs.sleep,
             onTap: () => _napTap(context, app),
           ),
@@ -374,8 +334,8 @@ class _HomePageState extends State<HomePage> {
             hint: nap == null
                 ? 'Put down for a nap'
                 : 'Sleeping · ${duration(now.difference(nap.time))}',
-            soft: Baby.pillSoft,
-            strong: Baby.pill,
+            soft: Baby.sleepSoft,
+            strong: Baby.sleep,
             onTap: () => _napTap(context, app),
           ),
         ];
@@ -821,9 +781,11 @@ class _ReminderRow extends StatelessWidget {
       text = 'Feed was due at ${hm(at)}';
     }
     final desktop = Desktop.of(context);
-    final radius = BorderRadius.circular(desktop ? DesktopTokens.radiusLg : 24);
+    final radius = BorderRadius.circular(desktop ? DesktopTokens.radiusLg : 22);
     return Material(
       color: Baby.card,
+      elevation: desktop || Baby.dark ? 0 : 1,
+      shadowColor: Theme.of(context).cardTheme.shadowColor,
       shape: RoundedRectangleBorder(
         borderRadius: radius,
         side: desktop ? BorderSide(color: Baby.border) : BorderSide.none,
@@ -856,4 +818,488 @@ class _ReminderRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The top of Today: the baby's photo, name and age, then the time since
+/// the last feed (the number that matters at 3 am), the last nappy and sleep.
+class _BabyHero extends StatelessWidget {
+  const _BabyHero({required this.app});
+  final AppState app;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: Baby.hero,
+        ),
+        borderRadius: BorderRadius.circular(28),
+      ),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      child: LayoutBuilder(
+        builder: (context, constraints) => _content(
+          context,
+          wide:
+              constraints.maxWidth >=
+              320 * MediaQuery.textScalerOf(context).scale(1),
+        ),
+      ),
+    );
+  }
+
+  Widget _content(BuildContext context, {required bool wide}) {
+    final baby = app.activeBaby;
+    final name = baby.name.trim();
+    final last = app.lastFeed;
+    final nappy = app.lastNappy;
+    final nap = app.activeSleep;
+    final soft = Baby.ink.withValues(alpha: 0.62);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Semantics(
+              button: true,
+              label: tr('Edit profile'),
+              child: GestureDetector(
+                onTap: () => editBabyProfile(context),
+                child: Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    color: Baby.card.withValues(alpha: 0.85),
+                    shape: BoxShape.circle,
+                  ),
+                  child: BabyPhoto(photo: baby.photo, size: 50),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  LText.raw(
+                    name.isEmpty ? tr('Your baby') : name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 21,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                  if (baby.dateOfBirth != null)
+                    LText(
+                      babyAge(baby),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: soft,
+                      ),
+                    )
+                  else
+                    GestureDetector(
+                      onTap: () => editBabyProfile(context),
+                      child: LText(
+                        'Add a birthday',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Baby.primary,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            // The greeting is a nicety: it gives way on narrow screens.
+            if (wide) ...[
+              const SizedBox(width: 8),
+              LText(
+                greeting(),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: soft,
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 18),
+        Semantics(
+          button: last != null,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: last == null ? null : () => editEntry(context, last),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                LText(
+                  'Since last feed',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: soft,
+                  ),
+                ),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  switchInCurve: Curves.easeOutCubic,
+                  layoutBuilder: (current, previous) => Stack(
+                    alignment: AlignmentDirectional.centerStart,
+                    children: [...previous, ?current],
+                  ),
+                  child: LText(
+                    last == null ? 'No feeds yet' : _agoShort(last.time),
+                    key: ValueKey(last?.time),
+                    style: TextStyle(
+                      fontSize: last == null ? 30 : 42,
+                      height: 1.15,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -1,
+                      color: Baby.ink,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
+                LText(
+                  last == null
+                      ? 'Tap Feed below when the next one starts'
+                      : [
+                          last.side == null ? 'Breast' : sideLabel(last.side!),
+                          hm(last.time),
+                          ?entryDetail(last),
+                        ].join(' · '),
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                    color: soft,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _HeroStat(
+                glyph: Glyphs.nappy,
+                color: Baby.nappy,
+                label: 'Last nappy',
+                value: nappy == null ? 'None yet' : ago(nappy.time),
+                onTap: nappy == null
+                    ? () => showSheet(context, const NappySheet())
+                    : () => editEntry(context, nappy),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _HeroStat(
+                glyph: Glyphs.sleep,
+                color: Baby.sleep,
+                label: nap == null ? 'Sleep' : 'Sleeping',
+                value: nap == null
+                    ? 'Awake'
+                    : duration(DateTime.now().difference(nap.time)),
+                onTap: () => _napTap(context, app),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+void _napTap(BuildContext context, AppState app) {
+  final nap = app.activeSleep;
+  if (nap == null) {
+    showSheet(context, const SleepSheet());
+  } else {
+    app.endSleep(nap);
+  }
+}
+
+/// A small frosted tile inside the hero.
+class _HeroStat extends StatelessWidget {
+  const _HeroStat({
+    required this.glyph,
+    required this.color,
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+  final Glyph glyph;
+  final Color color;
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Baby.card.withValues(alpha: Baby.dark ? 0.35 : 0.7),
+    borderRadius: BorderRadius.circular(18),
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+        child: Row(
+          children: [
+            glyph(22, color),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  LText(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: Baby.muted,
+                    ),
+                  ),
+                  LText(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// The steps of the first-log guide, worked out from what has been logged.
+enum _Guide { feed, nappy, done }
+
+_Guide _guideStep(AppState app) => app.lastFeed == null
+    ? _Guide.feed
+    : app.lastNappy == null
+    ? _Guide.nappy
+    : _Guide.done;
+
+/// Rings a quick-log button while the guide points at it. The ring breathes
+/// a few times, then stays still.
+class _Guided extends StatelessWidget {
+  const _Guided({required this.on, required this.child});
+  final bool on;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!on) return child;
+    return Loop(
+      period: const Duration(milliseconds: 900),
+      cycles: 6,
+      reverse: true,
+      rest: 1,
+      builder: (context, t) => DecoratedBox(
+        position: DecorationPosition.foreground,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: Baby.primary.withValues(alpha: 0.35 + 0.5 * t),
+            width: 2,
+          ),
+        ),
+        child: child,
+      ),
+    );
+  }
+}
+
+/// After setup: a short guide that follows real logging, first a feed, then
+/// a nappy, then a word on where everything ends up.
+class _FirstLogGuide extends StatelessWidget {
+  const _FirstLogGuide({required this.app});
+  final AppState app;
+
+  @override
+  Widget build(BuildContext context) {
+    final step = _guideStep(app);
+    final (title, text) = switch (step) {
+      _Guide.feed => (
+        'Log your first feed',
+        'Tap Feed when the next feed starts. Use the timer, or just pick a '
+            'side and save.',
+      ),
+      _Guide.nappy => (
+        'Nice! Now a nappy',
+        'Tap Nappy at the next change: pee, poo or both, in one tap.',
+      ),
+      _Guide.done => (
+        'That’s the basics',
+        'Everything you log shows on Today and in History. Reminders and '
+            'sharing are in Settings.',
+      ),
+    };
+    final index = _Guide.values.indexOf(step);
+    return Card(
+      color: Baby.primarySoft,
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 16, 8, 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                for (var i = 0; i < _Guide.values.length; i++)
+                  Container(
+                    margin: const EdgeInsetsDirectional.only(end: 4),
+                    width: i == index ? 18 : 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: i <= index
+                          ? Baby.primary
+                          : Baby.primary.withValues(alpha: 0.25),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  LText(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  LText(text, style: const TextStyle(height: 1.35)),
+                ],
+              ),
+            ),
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: TextButton(
+                onPressed: app.finishTour,
+                child: LText(step == _Guide.done ? 'Got it' : 'Skip tour'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Things setup no longer asks up front, offered on Today once they matter.
+/// (The night light announces itself with its own banner.)
+List<Widget> _tips(BuildContext context, AppState app) {
+  if (app.tourPending) return const [];
+  return [
+    if (app.peers.isEmpty && app.lastFeed != null && app.tipShown('share'))
+      _TipCard(
+        glyph: Glyphs.heart,
+        color: Baby.primary,
+        soft: Baby.primarySoft,
+        title: 'Share with your partner',
+        text: 'Both phones keep the same log over your home Wi‑Fi.',
+        dismiss: 'Not now',
+        action: 'Connect',
+        onDismiss: () => app.dismissTip('share'),
+        onAction: () {
+          app.dismissTip('share');
+          openAddDevice(context);
+        },
+      ),
+  ].expand((tip) => [const SizedBox(height: 14), tip]).toList();
+}
+
+class _TipCard extends StatelessWidget {
+  const _TipCard({
+    required this.glyph,
+    required this.color,
+    required this.soft,
+    required this.title,
+    required this.text,
+    required this.dismiss,
+    required this.action,
+    required this.onDismiss,
+    required this.onAction,
+  });
+  final Glyph glyph;
+  final Color color;
+  final Color soft;
+  final String title;
+  final String text;
+  final String dismiss;
+  final String action;
+  final VoidCallback onDismiss;
+  final VoidCallback onAction;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 8, 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconBubble(glyph: glyph, color: soft, iconColor: color, size: 40),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsetsDirectional.only(end: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      LText(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      LText(text, style: TextStyle(color: Baby.muted)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Wrap(
+            alignment: WrapAlignment.end,
+            children: [
+              TextButton(
+                onPressed: onDismiss,
+                style: TextButton.styleFrom(foregroundColor: Baby.muted),
+                child: LText(dismiss),
+              ),
+              TextButton(onPressed: onAction, child: LText(action)),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
 }

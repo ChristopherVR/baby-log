@@ -82,7 +82,7 @@ void main() {
       await tester.tap(find.byTooltip('Settings'));
       await tester.pumpAndSettle();
       expect(find.byType(NighttimeNotice), findsOneWidget);
-      expect(Baby.bg, const Color(0xFFE4D8CA));
+      expect(Baby.bg, const Color(0xFFEADBD4));
       now = DateTime(2026, 10, 18, 6);
       await tester.pump(const Duration(hours: 12));
       await tester.pumpAndSettle();

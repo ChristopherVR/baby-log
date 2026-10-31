@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../routines.dart';
+import '../store.dart';
 import 'common.dart';
 import 'sheets.dart';
 import 'theme.dart';
@@ -21,51 +22,67 @@ class BabyPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 12, 8),
+      padding: const EdgeInsets.fromLTRB(16, 0, 8, 8),
       child: Row(
         children: [
-          BabyPhoto(photo: app.activeBaby.photo, size: 36),
-          const SizedBox(width: 12),
           Expanded(
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                isExpanded: true,
-                value: app.activeBabyId,
-                items: [
-                  for (final b in app.babies)
-                    DropdownMenuItem(
-                      value: b.id,
-                      child: LText.raw(
-                        b.name.isEmpty ? tr('Baby') : b.name,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
+            child: Container(
+              padding: const EdgeInsetsDirectional.fromSTEB(4, 2, 10, 2),
+              decoration: BoxDecoration(
+                color: Baby.card,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Baby.line),
+              ),
+              child: Row(
+                children: [
+                  BabyPhoto(photo: app.activeBaby.photo, size: 32),
+                  const SizedBox(width: 8),
+                  Expanded(child: _babyDropdown(context, app)),
                 ],
-                onChanged: (id) {
-                  if (id != null && !app.selectBaby(id)) {
-                    showMessage(
-                      context,
-                      'Save or stop the feed timer before switching babies.',
-                    );
-                  }
-                },
               ),
             ),
           ),
+          const SizedBox(width: 4),
           LIconButton(
             tooltip: 'Edit profile',
-            icon: const Icon(Icons.edit_outlined),
+            icon: Icon(Icons.edit_outlined, color: Baby.muted),
             onPressed: () => editBabyProfile(context),
           ),
           LIconButton(
             tooltip: 'Add baby',
-            icon: const Icon(Icons.person_add_alt_1_rounded),
+            icon: Icon(Icons.person_add_alt_1_outlined, color: Baby.muted),
             onPressed: () => _babyName(context),
           ),
         ],
       ),
     );
   }
+
+  Widget _babyDropdown(BuildContext context, AppState app) =>
+      DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          isExpanded: true,
+          value: app.activeBabyId,
+          items: [
+            for (final b in app.babies)
+              DropdownMenuItem(
+                value: b.id,
+                child: LText.raw(
+                  b.name.isEmpty ? tr('Baby') : b.name,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+          onChanged: (id) {
+            if (id != null && !app.selectBaby(id)) {
+              showMessage(
+                context,
+                'Save or stop the feed timer before switching babies.',
+              );
+            }
+          },
+        ),
+      );
 }
 
 /// Asks for a name and adds a baby (it becomes the selected one).

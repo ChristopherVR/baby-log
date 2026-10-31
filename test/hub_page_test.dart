@@ -49,6 +49,8 @@ void main() {
       expect(find.textContaining('This device'), findsOneWidget);
       expect(find.text(empty ? 'No other devices yet' : 'Dad'), findsOneWidget);
       expect(find.text('Add a device'), findsOneWidget);
+      await tester.ensureVisible(find.text('Add a device'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Add a device'));
       await tester.pumpAndSettle();
       expect(find.byType(AddDevicePage), findsOneWidget);

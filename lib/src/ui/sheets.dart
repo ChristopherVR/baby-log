@@ -374,7 +374,10 @@ class _FeedSheetState extends State<FeedSheet> {
     final app = AppScope.of(context);
     final editing = widget.initial != null;
     final suggested = editing ? null : app.suggestedSide;
-    final s = side ?? suggested ?? FeedSide.left;
+    final s =
+        side ??
+        suggested ??
+        (app.bottleFirst ? FeedSide.bottle : FeedSide.left);
     final bottle = s == FeedSide.bottle;
 
     Future<void> save() async {

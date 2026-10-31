@@ -1,8 +1,8 @@
 """Store screenshots render in the flutter_test engine, which has no system
-font fallback. Nunito lacks a few symbols the app uses (for example the arrow
+font fallback. Figtree lacks a few symbols the app uses (for example the arrow
 in the growth chart summary), which a phone draws from its system font. This
 adds those glyphs (an arrow drawn here, the minus sign from Roboto) to
-temporary copies of Nunito so the screenshots match what a phone shows. Output: .dart_tool/store_fonts/.
+temporary copies of Figtree so the screenshots match what a phone shows. Output: .dart_tool/store_fonts/.
 
     python tool/prepare_store_fonts.py [path to material_fonts/roboto-regular.ttf]
 """
@@ -44,7 +44,7 @@ roboto = TTFont(ROBOTO)
 rglyphs = roboto.getGlyphSet()
 rcmap = roboto.getBestCmap()
 
-for src in sorted((ROOT / "assets" / "fonts").glob("Nunito-*.ttf")):
+for src in sorted((ROOT / "assets" / "fonts").glob("Figtree-*.ttf")):
     font = TTFont(src)
     scale = font["head"].unitsPerEm / roboto["head"].unitsPerEm
     cmap = font.getBestCmap()

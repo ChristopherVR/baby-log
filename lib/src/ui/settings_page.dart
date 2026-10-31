@@ -1095,11 +1095,11 @@ class PairCard extends StatelessWidget {
                   size: 180,
                   eyeStyle: const QrEyeStyle(
                     eyeShape: QrEyeShape.circle,
-                    color: Color(0xFF34304A),
+                    color: Color(0xFF3B2A2F),
                   ),
                   dataModuleStyle: const QrDataModuleStyle(
                     dataModuleShape: QrDataModuleShape.circle,
-                    color: Color(0xFF34304A),
+                    color: Color(0xFF3B2A2F),
                   ),
                 ),
               ),

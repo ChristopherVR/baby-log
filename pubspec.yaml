@@ -71,16 +71,18 @@ flutter:
   assets:
     - assets/release_notes.json
 
-  # Nunito (SIL Open Font License, see assets/fonts/OFL.txt)
+  # Figtree (SIL Open Font License, see assets/fonts/OFL.txt)
   fonts:
-    - family: Nunito
+    - family: Figtree
       fonts:
-        - asset: assets/fonts/Nunito-400.ttf
-        - asset: assets/fonts/Nunito-600.ttf
+        - asset: assets/fonts/Figtree-400.ttf
+        - asset: assets/fonts/Figtree-500.ttf
+          weight: 500
+        - asset: assets/fonts/Figtree-600.ttf
           weight: 600
-        - asset: assets/fonts/Nunito-700.ttf
+        - asset: assets/fonts/Figtree-700.ttf
           weight: 700
-        - asset: assets/fonts/Nunito-800.ttf
+        - asset: assets/fonts/Figtree-800.ttf
           weight: 800
 
   # To add assets to your application, add an assets section, like this:

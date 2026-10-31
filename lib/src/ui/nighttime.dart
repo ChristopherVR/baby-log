@@ -33,6 +33,7 @@ class NighttimeNotice extends StatelessWidget {
               style: TextButton.styleFrom(
                 visualDensity: VisualDensity.compact,
                 textStyle: const TextStyle(
+                  fontFamily: Baby.font,
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
                 ),

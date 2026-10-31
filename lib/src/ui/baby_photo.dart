@@ -98,7 +98,7 @@ class _BabyPhotoState extends State<BabyPhoto> {
   @override
   Widget build(BuildContext context) {
     final placeholder = ColoredBox(
-      color: Baby.pillSoft,
+      color: Baby.primarySoft,
       child: Center(
         child: Icon(
           Icons.child_care_rounded,
