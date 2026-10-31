@@ -1084,6 +1084,17 @@ const afrikaans = <String, String>{
   'Pumping sessions per day': 'Pompsessies per dag',
   'Pumped ml per day': 'Gepompte ml per dag',
   'Pumping minutes per day': 'Pompminute per dag',
+  'Exact version': 'Presiese weergawe',
+  'Safe updates': 'Veilige opdaterings',
+  'Yes, keeps a backup': 'Ja, hou ’n rugsteun',
+  'No backup copy': 'Geen rugsteun nie',
+  'Not checked yet': 'Nog nie nagegaan nie',
+  'Check firmware details': 'Kyk na fermware-besonderhede',
+  'Firmware {version}': 'Fermware {version}',
+  'Firmware updates come from Momcozy: install them with the Momcozy app, then check here that both pumps match.': 'Fermware-opdaterings kom van Momcozy: installeer dit met die Momcozy-toep en kyk dan hier of albei pompe ooreenstem.',
+  'This pump has no firmware channel': 'Hierdie pomp het geen fermware-kanaal nie',
+  'The pump did not answer': 'Die pomp het nie geantwoord nie',
+  'The pump answered the check wrongly': 'Die pomp het die kontrole verkeerd beantwoord',
 };
 
 /// The Google Play build tracks "habits" instead of "pills", so Play does not

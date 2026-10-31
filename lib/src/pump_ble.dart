@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:universal_ble/universal_ble.dart';
 
+import 'jieli.dart';
 import 'models.dart';
 import 'momcozy.dart';
 import 'pump_session.dart';
@@ -18,11 +19,15 @@ class BlePumpTransport implements PumpTransport {
   final String writeChar;
   final String notifyChar;
 
+  /// Wait for the write to be acknowledged; the pump channel does not.
+  final bool withResponse;
+
   BlePumpTransport(
     this.deviceId, {
     required this.service,
     required this.writeChar,
     required this.notifyChar,
+    this.withResponse = false,
   });
 
   @override
@@ -35,7 +40,7 @@ class BlePumpTransport implements PumpTransport {
     service,
     writeChar,
     bytes,
-    withoutResponse: true,
+    withoutResponse: !withResponse,
   );
 }
 
@@ -62,6 +67,10 @@ class ConnectedPump {
   PumpSession? session;
   PumpLinkState state = PumpLinkState.connecting;
   String? error;
+
+  /// From the pump's JieLi chip, once read.
+  JieliTargetInfo? firmware;
+  List<PumpLogLine> firmwareLog = const [];
   StreamSubscription<bool>? _connection;
 
   ConnectedPump(this.id, this.name);
@@ -429,12 +438,59 @@ class PumpHub extends ChangeNotifier {
     return records;
   }
 
+  /// Asks the pump's JieLi chip for its exact firmware version, battery and
+  /// whether it keeps a backup copy while updating. Read-only.
+  Future<JieliTargetInfo> readFirmware(ConnectedPump p) async {
+    final services = await UniversalBle.discoverServices(p.id);
+    final service = services
+        .where((s) => s.uuid == BleUuidParser.string(jieliServiceUuid))
+        .firstOrNull;
+    if (service == null) {
+      throw JieliException('This pump has no firmware channel');
+    }
+    final write = service.characteristics
+        .where((c) => c.uuid == BleUuidParser.string(jieliWriteUuid))
+        .firstOrNull;
+    final t = BlePumpTransport(
+      p.id,
+      service: jieliServiceUuid,
+      writeChar: jieliWriteUuid,
+      notifyChar: jieliNotifyUuid,
+      withResponse:
+          write?.properties.contains(CharacteristicProperty.write) ?? true,
+    );
+    final session = JieliSession(t);
+    try {
+      await UniversalBle.subscribeNotifications(
+        p.id,
+        jieliServiceUuid,
+        jieliNotifyUuid,
+      );
+      final info = await session.targetInfo();
+      p.firmware = info;
+      _app?.rememberPump(p.id, {
+        'fwVersion': ?info.version,
+        'dualBank': ?info.dualBank,
+      });
+      return info;
+    } finally {
+      p.firmwareLog = session.log;
+      session.dispose();
+      try {
+        await UniversalBle.unsubscribe(p.id, jieliServiceUuid, jieliNotifyUuid);
+      } catch (_) {}
+      notifyListeners();
+    }
+  }
+
   /// The raw packet log of every connected pump, for sharing.
   String logText() => [
     for (final p in pumps.values) ...[
       '# ${p.label} ${p.session?.info?.serial ?? p.id} '
           'fw ${p.session?.info?.firmwareVersion}',
       ...?p.session?.log.map((l) => '$l'),
+      if (p.firmwareLog.isNotEmpty) '# firmware channel',
+      ...p.firmwareLog.map((l) => '$l'),
     ],
   ].join('\n');
 }

@@ -1093,9 +1093,26 @@ class PumpDetailPage extends StatelessWidget {
                     if (serial != null && serial.isNotEmpty)
                       row('Serial number', serial),
                     if (firmware != null) row('Firmware', '$firmware'),
+                    if (p?.firmware?.version ?? info['fwVersion']
+                        case final String v)
+                      row('Exact version', v),
+                    row('Safe updates', switch (p?.firmware?.dualBank ??
+                        info['dualBank'] as bool?) {
+                      true => tr('Yes, keeps a backup'),
+                      false => tr('No backup copy'),
+                      null => tr('Not checked yet'),
+                    }),
                     if (hardware != null) row('Hardware', '$hardware'),
                     row('Bluetooth', id.toUpperCase()),
                   ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+                  child: LText(
+                    'Firmware updates come from Momcozy: install them with the '
+                    'Momcozy app, then check here that both pumps match.',
+                    style: TextStyle(color: Baby.muted, fontSize: 13),
+                  ),
                 ),
                 const SectionTitle('Actions'),
                 ListCard(
@@ -1113,6 +1130,24 @@ class PumpDetailPage extends StatelessWidget {
                                 r.isEmpty
                                     ? 'Nothing new on the pump'
                                     : 'Read ${r.length} records from the pump',
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) showMessage(context, '$e');
+                          }
+                        },
+                      ),
+                    if (ready)
+                      ListTile(
+                        leading: const Icon(Icons.memory_rounded),
+                        title: const LText('Check firmware details'),
+                        onTap: () async {
+                          try {
+                            final f = await hub.readFirmware(p!);
+                            if (context.mounted) {
+                              showMessage(
+                                context,
+                                'Firmware ${f.version ?? '?'}',
                               );
                             }
                           } catch (e) {
