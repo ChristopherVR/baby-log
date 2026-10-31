@@ -46,7 +46,7 @@ dependencies:
   material_symbols_icons: ^4.2960.0
   file_picker: ^13.1.0
   package_info_plus: ^10.2.2
-
+  universal_ble: ^3.2.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

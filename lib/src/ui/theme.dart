@@ -42,6 +42,9 @@ abstract final class Baby {
   static Color get pee => _c(0xFFE3A72F, 0xFFBC8A1E, 0xFFF2C45C);
   static Color get peeSoft => _c(0xFFFFF3D6, 0xFFEEDCB5, 0xFF3A311C);
   static Color get poo => _c(0xFF9C6B52, 0xFF835842, 0xFFD1A387);
+  // Pumping uses the app's own rose accent.
+  static Color get pump => primary;
+  static Color get pumpSoft => primarySoft;
   static Color get pooSoft => _c(0xFFF5E8E0, 0xFFE3CFC2, 0xFF382B25);
   static Color get ok => nappy;
   static Color get warn => _c(0xFFE08A1F, 0xFFC27214, 0xFFF3A94F);

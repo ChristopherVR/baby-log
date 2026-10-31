@@ -28,6 +28,9 @@ class HistoryStats {
     pee = List.filled(count, 0);
     poo = List.filled(count, 0);
     sleepHours = List.filled(count, 0.0);
+    pumps = List.filled(count, 0);
+    pumpMl = List.filled(count, 0);
+    pumpMinutes = List.filled(count, 0);
     loggedDays = List.filled(count, false);
     final indexes = {for (var i = 0; i < dates.length; i++) dates[i]: i};
     final rangeEnd = DateTime(last.year, last.month, last.day + 1);
@@ -44,6 +47,12 @@ class HistoryStats {
           feedByHour[t.hour]++;
         }
         if (e.type == EntryType.pill) pills[index]++;
+        if (e.type == EntryType.pump) {
+          pumps[index]++;
+          pumpMl[index] += e.amountMl ?? 0;
+          pumpMinutes[index] += e.durationMin ?? 0;
+          pumpByHour[t.hour]++;
+        }
         if (e.type == EntryType.nappy) {
           final kind = e.nappy ?? NappyKind.pee;
           if (kind != NappyKind.poo) {
@@ -97,12 +106,18 @@ class HistoryStats {
   late final List<int> pee;
   late final List<int> poo;
   late final List<double> sleepHours;
+  late final List<int> pumps;
+  late final List<int> pumpMl;
+  late final List<int> pumpMinutes;
   late final List<bool> loggedDays;
   late final List<int> completedIndexes;
   final feedByHour = List.filled(24, 0);
   final peeByHour = List.filled(24, 0);
   final pooByHour = List.filled(24, 0);
   final sleepByHour = List.filled(24, 0.0);
+  final pumpByHour = List.filled(24, 0);
+
+  bool get hasPumping => pumps.any((n) => n > 0);
 
   bool get canEstimate =>
       completedIndexes.where((i) => loggedDays[i]).length >= 3;

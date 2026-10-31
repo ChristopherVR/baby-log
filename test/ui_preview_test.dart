@@ -15,6 +15,8 @@ import 'dart:ui' show ImageByteFormat;
 import 'package:baby_app/main.dart';
 import 'package:baby_app/src/models.dart';
 import 'package:baby_app/src/store.dart';
+import 'package:baby_app/src/pump_ble.dart';
+import 'package:baby_app/src/pump_session.dart';
 import 'package:baby_app/src/ui/home_page.dart';
 import 'package:baby_app/src/ui/setup_page.dart';
 import 'package:baby_app/src/ui/sheets.dart';
@@ -24,6 +26,8 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
+
+import 'pump_session_test.dart' show FakePump;
 
 final _root = Directory.current.path;
 final _out = Platform.environment['PREVIEW_OUT'] ?? '$_root/build/preview';
@@ -180,6 +184,52 @@ void main() {
     await snap(tester, 'feed-sheet');
     debugDisableShadows = true;
   });
+  testWidgets('pump', (tester) async {
+    _seed(app, now);
+    for (final (h, l, r) in [(7, 70, 55), (11, 60, 50), (15, 80, 65)]) {
+      app.addEntry(
+        Entry(
+          type: EntryType.pump,
+          time: now.subtract(Duration(hours: h)),
+          side: FeedSide.both,
+          durationMin: 18,
+          leftMl: l,
+          rightMl: r,
+          amountMl: l + r,
+        ),
+      );
+    }
+    // Two pretend pumps, so the live controls show.
+    PumpHub.supportedOverride = true;
+    addTearDown(() => PumpHub.supportedOverride = null);
+    final hub = PumpHub.instance..attach(app);
+    for (final (id, side) in [('l', 0), ('r', 1)]) {
+      final pump = FakePump()..status[2] = side;
+      final session = PumpSession(pump);
+      await tester.runAsync(session.start);
+      hub.pumps[id] = ConnectedPump(id, 'M5 Smart')
+        ..session = session
+        ..state = PumpLinkState.ready;
+      app.rememberPump(id, {'name': 'M5 Smart', 'side': side});
+    }
+    await start(tester);
+    await snap(tester, 'pump-today');
+    await tester.tap(find.text('Pump'));
+    await snap(tester, 'pump-page');
+    await tester.tap(find.text('Left'));
+    await snap(tester, 'pump-detail');
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -900));
+    await snap(tester, 'pump-page-scrolled');
+    unawaited(
+      showSheet(tester.element(find.byType(Scaffold).last), const PumpSheet()),
+    );
+    await snap(tester, 'pump-sheet');
+    hub.pumps.clear();
+    debugDisableShadows = true;
+  });
+
   for (final (name, appearance, hour) in [
     ('dark', 'dark', 10),
     ('night-light', 'light', 22),

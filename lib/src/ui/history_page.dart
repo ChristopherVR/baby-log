@@ -33,6 +33,7 @@ String _searchText(Entry e) => _searchCache[e] ??= [
   if (e.type == EntryType.nappy && e.nappy != NappyKind.pee) 'dirty vuil poef',
   if (e.type == EntryType.pill) 'pill medicine pil medisyne',
   if (e.type == EntryType.sleep) 'sleep nap sleeping slaap slapie',
+  if (e.type == EntryType.pump) 'pump pumping expressing kolf pomp melk',
   _fullDate.format(e.time),
   _shortDate.format(e.time),
   hm(e.time),
@@ -205,6 +206,7 @@ class _ActivityLogState extends State<_ActivityLog>
           (EntryType.nappy, 'Nappies'),
           (EntryType.pill, 'Pills'),
           (EntryType.sleep, 'Sleep'),
+          (EntryType.pump, 'Pumping'),
         ])
           if (list.any((e) => e.type == type))
             (title, list.where((e) => e.type == type).toList()),
@@ -520,6 +522,9 @@ class _ActivityLogState extends State<_ActivityLog>
             (EntryType.nappy, 'Nappies', Glyphs.nappy, Baby.nappy),
             (EntryType.pill, 'Pills', Glyphs.pill, Baby.pill),
             (EntryType.sleep, 'Sleep', Glyphs.sleep, Baby.sleep),
+            if (filter == EntryType.pump ||
+                AppScope.of(context).counts['pump'] != 0)
+              (EntryType.pump, 'Pumping', Glyphs.pump, Baby.pump),
           ])
             Padding(
               padding: const EdgeInsets.only(right: 8),

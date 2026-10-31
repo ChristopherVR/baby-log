@@ -86,6 +86,10 @@ String entryTitle(Entry e) => switch (e.type) {
   EntryType.nappy => 'Nappy · ${nappyLabel(e.nappy ?? NappyKind.pee)}',
   EntryType.pill => e.medName ?? 'Pill',
   EntryType.sleep => e.endTime == null ? 'Sleeping' : 'Sleep',
+  EntryType.pump => switch (e.side) {
+    FeedSide.left || FeedSide.right => 'Pumping · ${sideLabel(e.side!)}',
+    _ => 'Pumping',
+  },
 };
 
 String? entryDetail(Entry e) {
@@ -94,9 +98,14 @@ String? entryDetail(Entry e) {
         ? 'Since ${hm(e.time)}'
         : '${hm(e.time)} – ${hm(e.endTime!)} · ${duration(e.endTime!.difference(e.time))}';
   }
+  final perSide =
+      e.type == EntryType.pump && e.leftMl != null && e.rightMl != null;
   final parts = [
     if (e.durationMin != null) '${e.durationMin} min',
-    if (e.amountMl != null) '${e.amountMl} ml',
+    if (perSide)
+      '${e.leftMl} + ${e.rightMl} ml'
+    else if (e.amountMl != null)
+      '${e.amountMl} ml',
   ];
   return parts.isEmpty ? null : parts.join(' · ');
 }
@@ -116,6 +125,7 @@ abstract final class Glyphs {
   static final bottle = _sym(Symbols.water_bottle_rounded);
   static final nappy = _sym(Symbols.baby_changing_station_rounded);
   static final pee = _sym(Symbols.water_drop_rounded);
+  static final pump = _sym(Symbols.water_full_rounded);
   // The Play build tracks habits, not pills.
   static Glyph get pill => Distribution.play ? _habit : _pill;
   static IconData get pillIcon =>
@@ -201,6 +211,11 @@ class _PooPainter extends CustomPainter {
     glyph: Glyphs.pill,
     soft: Baby.pillSoft,
     strong: Baby.pill,
+  ),
+  EntryType.pump => (
+    glyph: Glyphs.pump,
+    soft: Baby.pumpSoft,
+    strong: Baby.pump,
   ),
 };
 

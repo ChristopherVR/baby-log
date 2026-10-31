@@ -44,6 +44,7 @@ Future<void> _openSheet(BuildContext context, Widget child) {
     NappySheet(:final initial) => initial != null,
     PillDoseSheet() => true,
     SleepSheet(:final initial) => initial != null,
+    PumpSheet(:final initial) => initial != null,
     _ => false,
   };
   // The sheet may never be taller than the window (minus a small gap at the
@@ -276,6 +277,7 @@ Future<void> editEntry(BuildContext context, Entry e) =>
       EntryType.feed => FeedSheet(initial: e),
       EntryType.nappy => NappySheet(initial: e),
       EntryType.pill => PillDoseSheet(initial: e),
+      EntryType.pump => PumpSheet(initial: e),
     });
 
 class _DeleteButton extends StatelessWidget {
@@ -332,6 +334,39 @@ Widget _label(String text) => Padding(
   padding: const EdgeInsets.only(top: 18, bottom: 8),
   child: LText(text, style: const TextStyle(fontWeight: FontWeight.w800)),
 );
+
+/// Asks for an amount in ml that is not one of the quick choices.
+Future<int?> askMl(BuildContext context, int? initial) {
+  final field = TextEditingController(text: initial?.toString() ?? '');
+  int? value() {
+    final v = int.tryParse(field.text.trim());
+    return v == null || v <= 0 || v > 1000 ? null : v;
+  }
+
+  return showDialog<int>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const LText('How much?'),
+      content: TextField(
+        controller: field,
+        autofocus: true,
+        keyboardType: TextInputType.number,
+        decoration: const LInputDecoration(labelText: 'Amount', suffixText: 'ml'),
+        onSubmitted: (_) => Navigator.pop(ctx, value()),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const LText('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, value()),
+          child: const LText('Done'),
+        ),
+      ],
+    ),
+  );
+}
 
 class FeedSheet extends StatefulWidget {
   const FeedSheet({super.key, this.initial});
@@ -452,14 +487,24 @@ class _FeedSheetState extends State<FeedSheet> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            if (bottle)
+            if (bottle) ...[
               for (final v in _ml)
                 chip(
                   '$v ml',
                   ml == v,
                   (on) => setState(() => ml = on ? v : null),
-                )
-            else ...[
+                ),
+              if (ml != null && !_ml.contains(ml))
+                chip('$ml ml', true, (_) => setState(() => ml = null)),
+              ActionChip(
+                avatar: const Icon(Icons.edit_rounded, size: 18),
+                label: const LText('Other…'),
+                onPressed: () async {
+                  final v = await askMl(context, ml);
+                  if (v != null) setState(() => ml = v);
+                },
+              ),
+            ] else ...[
               for (final v in _minutes)
                 chip(
                   '$v min',
@@ -498,6 +543,194 @@ class _FeedSheetState extends State<FeedSheet> {
               child: FilledButton.icon(
                 style: FilledButton.styleFrom(
                   backgroundColor: Baby.feed,
+                  foregroundColor: Baby.onPrimary,
+                ),
+                icon: const Icon(Icons.check_rounded),
+                label: LText(editing ? 'Update' : 'Save'),
+                onPressed: editing && !dirty ? null : save,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+    return editing ? _EditGuard(dirty: dirty, child: content) : content;
+  }
+}
+
+/// Logs or edits a pumping session. [draft] pre-fills a new one, e.g. from
+/// a session just finished on the pumps; the amounts stay editable since a
+/// pump's own reading can be off.
+class PumpSheet extends StatefulWidget {
+  const PumpSheet({super.key, this.initial, this.draft});
+  final Entry? initial;
+  final Entry? draft;
+
+  @override
+  State<PumpSheet> createState() => _PumpSheetState();
+}
+
+class _PumpSheetState extends State<PumpSheet> {
+  late FeedSide side;
+  DateTime? time;
+  int? minutes;
+  final _total = TextEditingController();
+  final _left = TextEditingController();
+  final _right = TextEditingController();
+
+  static const _minutes = [10, 15, 20, 25, 30];
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.initial ?? widget.draft;
+    side = e?.side ?? FeedSide.both;
+    time = e?.time;
+    minutes = e?.durationMin;
+    if (e?.leftMl != null) _left.text = '${e!.leftMl}';
+    if (e?.rightMl != null) _right.text = '${e!.rightMl}';
+    if (e?.amountMl != null) _total.text = '${e!.amountMl}';
+  }
+
+  @override
+  void dispose() {
+    _total.dispose();
+    _left.dispose();
+    _right.dispose();
+    super.dispose();
+  }
+
+  int? _ml(TextEditingController c) => int.tryParse(c.text.trim());
+
+  /// (total, left, right) as they would be saved.
+  (int?, int?, int?) get _amounts {
+    if (side != FeedSide.both) return (_ml(_total), null, null);
+    final l = _ml(_left), r = _ml(_right);
+    if (l == null && r == null) return (_ml(_total), null, null);
+    return ((l ?? 0) + (r ?? 0), l, r);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = AppScope.of(context);
+    final editing = widget.initial != null;
+    final (total, left, right) = _amounts;
+
+    Future<void> save() async {
+      if (!await okToOverwrite(context, app, widget.initial) ||
+          !context.mounted) {
+        return;
+      }
+      final start = time ?? widget.draft?.time ?? DateTime.now();
+      final entry = Entry(
+        id: widget.initial?.id,
+        type: EntryType.pump,
+        time: start,
+        endTime: minutes == null
+            ? null
+            : start.add(Duration(minutes: minutes!)),
+        side: side,
+        durationMin: minutes,
+        amountMl: total,
+        leftMl: left,
+        rightMl: right,
+      );
+      app.addEntry(entry);
+      Navigator.pop(context);
+      if (!editing) {
+        showUndo(context, 'Pumping saved', () => app.deleteEntry(entry));
+      }
+    }
+
+    final initial = widget.initial;
+    final dirty =
+        initial != null &&
+        (side != initial.side ||
+            time != initial.time ||
+            minutes != initial.durationMin ||
+            total != initial.amountMl ||
+            left != initial.leftMl ||
+            right != initial.rightMl);
+
+    Widget mlField(TextEditingController c, String label) => TextField(
+      controller: c,
+      keyboardType: TextInputType.number,
+      decoration: LInputDecoration(labelText: label, suffixText: 'ml'),
+      onChanged: (_) => setState(() {}),
+    );
+
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SheetHeader(
+          title: editing ? 'Edit pumping' : 'Pumping',
+          glyph: Glyphs.pump,
+          soft: Baby.pumpSoft,
+          strong: Baby.pump,
+        ),
+        Row(
+          children: [
+            for (final f in const [
+              FeedSide.left,
+              FeedSide.both,
+              FeedSide.right,
+            ]) ...[
+              Expanded(
+                child: OptionTile(
+                  glyph: switch (f) {
+                    FeedSide.left => Glyphs.left,
+                    FeedSide.right => Glyphs.right,
+                    _ => Glyphs.bothSides,
+                  },
+                  glyphColor: Baby.pump,
+                  label: sideLabel(f),
+                  selected: f == side,
+                  color: Baby.pumpSoft,
+                  onTap: () => setState(() => side = f),
+                ),
+              ),
+              if (f != FeedSide.right) const SizedBox(width: 8),
+            ],
+          ],
+        ),
+        _label('How much'),
+        if (side == FeedSide.both)
+          Row(
+            children: [
+              Expanded(child: mlField(_left, 'Left')),
+              const SizedBox(width: 12),
+              Expanded(child: mlField(_right, 'Right')),
+            ],
+          )
+        else
+          mlField(_total, 'Amount'),
+        _label('How long (optional)'),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final v in [
+              ..._minutes,
+              if (minutes != null && !_minutes.contains(minutes)) minutes!,
+            ])
+              ChoiceChip(
+                label: LText('$v min'),
+                selected: minutes == v,
+                selectedColor: Baby.pumpSoft,
+                onSelected: (on) => setState(() => minutes = on ? v : null),
+              ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        WhenField(value: time, onChanged: (t) => setState(() => time = t)),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            if (editing) ...[_DeleteButton(widget.initial!), const Spacer()],
+            Expanded(
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Baby.pump,
                   foregroundColor: Baby.onPrimary,
                 ),
                 icon: const Icon(Icons.check_rounded),

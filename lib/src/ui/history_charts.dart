@@ -126,7 +126,30 @@ class _HistoryChartsState extends State<HistoryCharts> {
           Baby.sleep,
           unit: 'h',
         ),
+        if (stats.hasPumping)
+          chart(
+            hourly ? 'Pumping by hour' : 'Pumping sessions per day',
+            stats.pumps,
+            stats.pumpByHour,
+            Baby.pump,
+          ),
         if (!hourly) ...[
+          if (stats.hasPumping) ...[
+            chart(
+              'Pumped ml per day',
+              stats.pumpMl,
+              null,
+              Baby.pump,
+              unit: 'ml',
+            ),
+            chart(
+              'Pumping minutes per day',
+              stats.pumpMinutes,
+              null,
+              Baby.pump,
+              unit: 'min',
+            ),
+          ],
           chart(
             'Feed minutes per day',
             stats.feedMinutes,

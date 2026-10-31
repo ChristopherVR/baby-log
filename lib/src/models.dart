@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
-enum EntryType { feed, nappy, pill, sleep }
+enum EntryType { feed, nappy, pill, sleep, pump }
 
 enum FeedSide { left, right, both, bottle }
 
@@ -46,6 +46,10 @@ class Entry implements Syncable {
   final FeedSide? side;
   final int? durationMin;
   final int? amountMl;
+
+  /// For pumping: what each breast gave, when known. [amountMl] is the total.
+  final int? leftMl;
+  final int? rightMl;
   final NappyKind? nappy;
   final String? medId;
   final String? medName;
@@ -67,6 +71,8 @@ class Entry implements Syncable {
     this.side,
     this.durationMin,
     this.amountMl,
+    this.leftMl,
+    this.rightMl,
     this.nappy,
     this.medId,
     this.medName,
@@ -93,6 +99,8 @@ class Entry implements Syncable {
     side: side,
     durationMin: durationMin,
     amountMl: amountMl,
+    leftMl: leftMl,
+    rightMl: rightMl,
     nappy: nappy,
     medId: medId,
     medName: medName,
@@ -112,6 +120,8 @@ class Entry implements Syncable {
     if (side != null) 'side': side!.name,
     if (durationMin != null) 'durationMin': durationMin,
     if (amountMl != null) 'amountMl': amountMl,
+    if (leftMl != null) 'leftMl': leftMl,
+    if (rightMl != null) 'rightMl': rightMl,
     if (nappy != null) 'nappy': nappy!.name,
     if (medId != null) 'medId': medId,
     if (medName != null) 'medName': medName,
@@ -133,6 +143,8 @@ class Entry implements Syncable {
       side: _enum(FeedSide.values, j['side']),
       durationMin: (j['durationMin'] as num?)?.toInt(),
       amountMl: (j['amountMl'] as num?)?.toInt(),
+      leftMl: (j['leftMl'] as num?)?.toInt(),
+      rightMl: (j['rightMl'] as num?)?.toInt(),
       nappy: _enum(NappyKind.values, j['nappy']),
       medId: j['medId'] as String?,
       medName: j['medName'] as String?,

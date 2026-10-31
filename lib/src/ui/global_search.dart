@@ -256,12 +256,14 @@ SearchItem _entryItem(
       EntryType.nappy => 'Nappy',
       EntryType.pill => 'Pill',
       EntryType.sleep => 'Sleep',
+      EntryType.pump => 'Pumping',
     },
     if (e.side != null) ...[
       _englishSide(e.side!),
       if (e.side == FeedSide.bottle) 'Bottle feed',
     ],
     if (e.type == EntryType.feed && e.side != FeedSide.bottle) 'Breast',
+    if (e.type == EntryType.pump) 'Pump',
     if (e.nappy != null) _englishNappy(e.nappy!),
     if (e.type == EntryType.sleep) ...['Nap', 'Sleeping'],
   ];
@@ -286,6 +288,7 @@ SearchItem _entryItem(
         ],
         EntryType.pill => ['medicine', 'medisyne', 'pil'],
         EntryType.sleep => ['slaap', 'slapie'],
+        EntryType.pump => ['expressing', 'kolf', 'pomp', 'melk', 'milk'],
       },
       ?e.medName,
       ?e.by,

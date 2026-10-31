@@ -219,6 +219,7 @@ class PeerPage extends StatelessWidget {
                         ('sleep', 'Sleep', Glyphs.sleep, Baby.sleep),
                         ('nappy', 'Nappies', Glyphs.nappy, Baby.nappy),
                         ('pill', 'Pill doses', Glyphs.pill, Baby.pill),
+                        ('pump', 'Pumping', Glyphs.pump, Baby.pump),
                         ('med', 'Pills', Glyphs.pill, Baby.pill),
                         ('baby', 'Babies', Glyphs.baby, Baby.primary),
                         ('routine', 'Routines', Glyphs.alarm, Baby.primary),

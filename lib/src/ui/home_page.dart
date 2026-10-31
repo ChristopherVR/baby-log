@@ -9,6 +9,7 @@ import 'common.dart';
 import 'growth_page.dart';
 import 'hub_page.dart';
 import 'pills_page.dart';
+import 'pump_page.dart';
 import 'routines_page.dart';
 import 'settings_page.dart';
 import 'setup/motion.dart';
@@ -80,6 +81,7 @@ class _HomePageState extends State<HomePage> {
         _TimerCard(app: app),
         const SizedBox(height: 14),
       ],
+      const PumpLiveCard(),
       Card(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -136,6 +138,8 @@ class _HomePageState extends State<HomePage> {
                   onTap: () => _pillTap(context, app),
                 ),
               ),
+              if (app.pumpOnToday)
+                Expanded(child: _pumpTile(context, app)),
             ],
           ),
         ),
@@ -328,6 +332,7 @@ class _HomePageState extends State<HomePage> {
             strong: Baby.pill,
             onTap: () => _pillTap(context, app),
           ),
+          if (app.pumpOnToday) _pumpTile(context, app),
           ActionTile(
             glyph: Glyphs.sleep,
             label: nap == null ? 'Start nap' : 'End nap',
@@ -387,6 +392,23 @@ class _HomePageState extends State<HomePage> {
           ),
         );
       },
+    );
+  }
+
+  Widget _pumpTile(BuildContext context, AppState app) {
+    final last = app.entriesOn(DateTime.now(), EntryType.pump).firstOrNull;
+    return ActionTile(
+      glyph: Glyphs.pump,
+      label: 'Pump',
+      hint: last == null
+          ? 'Pump or log'
+          : duration(DateTime.now().difference(last.time)),
+      soft: Baby.pumpSoft,
+      strong: Baby.pump,
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const PumpPage()),
+      ),
     );
   }
 

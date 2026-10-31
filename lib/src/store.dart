@@ -314,6 +314,18 @@ class AppState extends ChangeNotifier {
   /// Night light: a dimmer, warmer light palette from 6 pm to 6 am.
   bool nightLight = true;
 
+  /// Pump tile on Today, next to Feed and Nappy. On unless switched off.
+  bool? showPump;
+
+  /// Bluetooth pumps paired on this phone, by device id: name, serial, side.
+  final pumpDevices = <String, Map<String, dynamic>>{};
+
+  /// Sessions rebuilt from the pumps' own logs, waiting to be added or
+  /// dismissed. Kept here because reading a pump's log empties it.
+  final pumpFound = <Entry>[];
+
+  bool get pumpOnToday => showPump ?? true;
+
   /// False until the first-time setup has been finished or skipped.
   bool setupDone = false;
 
@@ -655,6 +667,9 @@ class AppState extends ChangeNotifier {
     'sleep': _entries.values
         .where((e) => !e.deleted && e.type == EntryType.sleep)
         .length,
+    'pump': _entries.values
+        .where((e) => !e.deleted && e.type == EntryType.pump)
+        .length,
     'med': _visibleMeds.length,
     'baby': babies.length,
     'routine': _routines.values.where((r) => !r.deleted).length,
@@ -860,6 +875,46 @@ class AppState extends ChangeNotifier {
     _settingsChanged();
   }
 
+  void setShowPump(bool on) {
+    showPump = on;
+    _settingsChanged();
+  }
+
+  /// Pump details change often while pumping (battery, last reading), so
+  /// they save a little later rather than on every change.
+  void rememberPump(String id, Map<String, dynamic> info) {
+    pumpDevices[id] = {...?pumpDevices[id], ...info};
+    _metaChanged();
+  }
+
+  void forgetPump(String id) {
+    pumpDevices.remove(id);
+    _pumpsChanged();
+  }
+
+  /// Saves now, without the reminder rescheduling other settings need.
+  void _pumpsChanged() {
+    _save();
+    notifyListeners();
+  }
+
+  void setPumpFound(Iterable<Entry> sessions) {
+    pumpFound
+      ..clear()
+      ..addAll(sessions)
+      ..sort((a, b) => b.time.compareTo(a.time));
+    _pumpsChanged();
+  }
+
+  /// Every pumping session in the log, for any baby.
+  Iterable<Entry> get pumpEntries =>
+      _entries.values.where((e) => !e.deleted && e.type == EntryType.pump);
+
+  void removePumpFound(Entry e) {
+    pumpFound.removeWhere((f) => f.id == e.id);
+    _pumpsChanged();
+  }
+
   /// [tour] shows the first-log guide on Today; setup asks for it.
   void completeSetup({bool tour = false}) {
     setupDone = true;
@@ -1048,6 +1103,7 @@ class AppState extends ChangeNotifier {
               (e) =>
                   !e.deleted &&
                   (e.type == EntryType.pill ||
+                      e.type == EntryType.pump ||
                       (e.babyId ?? defaultBabyId) == activeBabyId),
             )
             .toList()
@@ -1812,7 +1868,9 @@ class AppState extends ChangeNotifier {
     final counts = _mergePayload(j);
     _changed();
     final entries = counts.entries
-        .where((e) => ['feed', 'nappy', 'pill', 'sleep'].contains(e.key))
+        .where(
+          (e) => ['feed', 'nappy', 'pill', 'sleep', 'pump'].contains(e.key),
+        )
         .fold<int>(0, (a, e) => a + e.value);
     return (
       entries: entries,
@@ -1855,6 +1913,17 @@ class AppState extends ChangeNotifier {
       );
       appearance = j['appearance'] as String? ?? 'light';
       nightLight = j['nightLight'] as bool? ?? true;
+      showPump = j['showPump'] as bool?;
+      pumpDevices.addAll({
+        for (final e in Map<String, dynamic>.from(
+          j['pumpDevices'] as Map? ?? {},
+        ).entries)
+          e.key: Map<String, dynamic>.from(e.value as Map),
+      });
+      pumpFound.addAll([
+        for (final e in j['pumpFound'] as List? ?? const [])
+          ?Entry.fromJson(Map<String, dynamic>.from(e as Map)),
+      ]);
       setupDone = j['setupDone'] as bool? ?? false;
       tourPending = j['tourPending'] as bool? ?? false;
       dismissedTips.addAll([
@@ -1970,6 +2039,9 @@ class AppState extends ChangeNotifier {
       'babyFeedReminderMinutes': _feedReminderMinutes,
       'appearance': appearance,
       'nightLight': nightLight,
+      'showPump': ?showPump,
+      'pumpDevices': pumpDevices,
+      'pumpFound': [for (final e in pumpFound) e.toJson()],
       'setupDone': setupDone,
       'tourPending': tourPending,
       'dismissedTips': dismissedTips.toList(),

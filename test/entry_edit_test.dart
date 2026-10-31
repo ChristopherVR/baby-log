@@ -166,4 +166,22 @@ void main() {
       expect(find.text('Discard changes?'), findsNothing);
     },
   );
+
+  testWidgets('a bottle feed can have any amount, not only the quick ones', (
+    tester,
+  ) async {
+    await open(
+      tester,
+      Entry(type: EntryType.feed, time: DateTime.now(), side: FeedSide.bottle),
+    );
+    await tester.tap(find.text('Other…'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '75');
+    await tester.tap(find.text('Done'));
+    await tester.pumpAndSettle();
+    expect(find.text('75 ml'), findsOneWidget);
+    await tester.tap(find.text('Update'));
+    await tester.pumpAndSettle();
+    expect(app.entries.single.amountMl, 75);
+  });
 }

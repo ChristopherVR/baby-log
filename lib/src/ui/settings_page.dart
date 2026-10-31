@@ -15,6 +15,8 @@ import 'growth_page.dart';
 import 'data_transfer.dart';
 import 'hub_page.dart';
 import 'peer_page.dart';
+import 'pump_lab_page.dart';
+import 'pump_page.dart';
 import 'qr_sync_page.dart';
 import 'sheets.dart';
 import 'theme.dart';
@@ -529,6 +531,57 @@ class _SettingsPageState extends State<SettingsPage> {
           onChanged: app.setNightLight,
         ),
       ),
+    ]);
+    addSection('Pumping', [
+      (
+        terms: ['Show Pump on Today', 'Pumping', 'Breast pump', 'Expressing'],
+        child: SwitchListTile(
+          contentPadding: const EdgeInsets.fromLTRB(16, 4, 12, 4),
+          secondary: const _Badge(Icons.water_drop_rounded, tone: 1),
+          title: const LText(
+            'Show Pump on Today',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          subtitle: LText(
+            'A Pump button next to Feed and Nappy, for logging pumping and '
+            'controlling Momcozy pumps.',
+            style: TextStyle(color: Baby.muted, fontWeight: FontWeight.w600),
+          ),
+          value: app.pumpOnToday,
+          onChanged: app.setShowPump,
+        ),
+      ),
+      (
+        terms: ['Pumping', 'Momcozy', 'BP380', 'Bluetooth', 'Your pumps'],
+        child: _Tile(
+          icon: Icons.bluetooth_rounded,
+          tone: 1,
+          title: 'Pumping',
+          subtitle: Platform.isAndroid
+              ? 'Your pumps, sessions and stats'
+              : 'Sessions and stats',
+          value: app.pumpDevices.isEmpty ? '' : '${app.pumpDevices.length}',
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const PumpPage()),
+          ),
+        ),
+      ),
+      if (Platform.isAndroid)
+        (
+          terms: ['Pump lab', 'Diagnostics', 'Packet log'],
+          child: _Tile(
+            icon: Icons.science_outlined,
+            tone: 4,
+            title: 'Pump lab',
+            subtitle: 'Diagnostics and raw pump data',
+            value: '',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PumpLabPage()),
+            ),
+          ),
+        ),
     ]);
     addSection('Family hub', [
       (

@@ -63,12 +63,14 @@ Future<void> exportCsvFile(BuildContext context, List<Entry> entries) {
           EntryType.nappy => 'Nappy',
           EntryType.pill => 'Pill',
           EntryType.sleep => 'Sleep',
+          EntryType.pump => 'Pump',
         },
         switch (e.type) {
           EntryType.feed => e.side == null ? 'Breast' : sideLabel(e.side!),
           EntryType.nappy => nappyLabel(e.nappy ?? NappyKind.pee),
           EntryType.pill => e.medName ?? '',
           EntryType.sleep => e.endTime == null ? 'Sleeping' : 'Nap',
+          EntryType.pump => e.side == null ? '' : sideLabel(e.side!),
         },
         e.type == EntryType.sleep
             ? e.endTime?.difference(e.time).inMinutes
