@@ -38,6 +38,12 @@ void main() {
     expect(update?.url.host, 'github.com');
   });
 
+  test('accepts downloads after the repository is renamed', () {
+    final json = release();
+    json['assets'][0]['browser_download_url'] = 'https://github.com/ChristopherVR/nestling/releases/download/v1.4.10/BabyLog-1.4.10.apk';
+    expect(AppRelease.parse(json, '1.4.9')?.version, '1.4.10');
+  });
+
   test('rejects old, equal, draft and prerelease releases', () {
     expect(AppRelease.parse(release(), '1.4.10'), isNull);
     expect(AppRelease.parse(release(), '2.0.0'), isNull);

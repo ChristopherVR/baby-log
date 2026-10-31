@@ -11,6 +11,10 @@ import 'distribution.dart';
 
 const releaseRepository = 'https://github.com/ChristopherVR/baby-log';
 
+/// The repository is being renamed to "nestling"; GitHub then hands out
+/// download links under the new name, so both are trusted.
+const _releasePaths = ['/ChristopherVR/baby-log/', '/ChristopherVR/nestling/'];
+
 /// Only stable, versioned APKs published by our release workflow are eligible.
 class AppRelease {
   const AppRelease(this.version, this.url, this.size);
@@ -34,8 +38,11 @@ class AppRelease {
           url.scheme != 'https' ||
           url.host != 'github.com' ||
           url.userInfo.isNotEmpty ||
-          url.path !=
-              '/ChristopherVR/baby-log/releases/download/$tag/BabyLog-$version.apk' ||
+          !_releasePaths.any(
+            (repo) =>
+                url.path ==
+                '${repo}releases/download/$tag/BabyLog-$version.apk',
+          ) ||
           size is! int ||
           size <= 0 ||
           size > 250 * 1024 * 1024) {
