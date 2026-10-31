@@ -1,9 +1,9 @@
 # Nestling privacy policy
 
-_Last updated: 22 October 2026_
+_Last updated: 31 October 2026_
 
 Nestling is a baby log for parents and caregivers: feeds, nappies, sleep, pills, routines and
-growth. It is built by an individual developer (ChristopherVR). This policy explains what the app
+growth and pumping. It is built by an individual developer (ChristopherVR). This policy explains what the app
 does with your information. In short: **your log stays on your own devices.**
 
 ## What the app stores
@@ -31,6 +31,10 @@ remove a device from the hub at any time in Settings.
   backup. Backups are written to a location you pick.
 - **Notifications, alarms and full-screen alerts:** for feed, pill and routine reminders that you
   set up.
+- **Bluetooth (nearby devices):** only to find and connect to your own Bluetooth breast pumps, so
+  you can control them and log pumping sessions. Nestling reads the pump's status, battery,
+  firmware version and session history, and keeps it on your device. Bluetooth scanning is not
+  used to work out your location.
 - **Network, Wi-Fi state, background service and battery optimisation:** to keep your devices in
   sync on your local network, including while the app is closed if you turn that on.
 
